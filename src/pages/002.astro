@@ -192,7 +192,14 @@ import Layout from '../layouts/Layout.astro';
 		 */
 		loadHdr() {
 			return new Promise((resolve) => {
-				const url = '../../public/little_paris_eiffel_tower_4k.hdr';
+				let url;
+
+				if(location.hostname == '127.0.0.1') {
+					url = '../../public/little_paris_eiffel_tower_4k.hdr';
+				} else {
+					url = '../little_paris_eiffel_tower_4k.hdr';
+				}
+
 				const loader = new RGBELoader();
 
 				loader.load(url, (texture) => {
@@ -210,7 +217,14 @@ import Layout from '../layouts/Layout.astro';
 
 		loadModelProppeler() {
 			return new Promise((resolve) => {
-				const url = '../../public/propeller.glb';
+				let url;
+
+				if(location.hostname == '127.0.0.1') {
+					url = '../../public/propeller.glb';
+				} else {
+					url = '../public/propeller.glb';
+				}
+
 				const loader = new GLTFLoader();
 
 				loader.load(url, (glb) => {
@@ -224,7 +238,14 @@ import Layout from '../layouts/Layout.astro';
 
 		loadModelHead() {
 			return new Promise((resolve) => {
-				const url = '../../public/head.glb';
+				let url;
+
+				if(location.hostname == '127.0.0.1') {
+					url = '../../public/head.glb';
+				} else {
+					url = '../head.glb';
+				}
+
 				const loader = new GLTFLoader();
 
 				loader.load(url, (glb) => {
@@ -238,7 +259,14 @@ import Layout from '../layouts/Layout.astro';
 
 		loadModelBody() {
 			return new Promise((resolve) => {
-				const url = '../../public/body.glb';
+				let url;
+
+				if(location.hostname == '127.0.0.1') {
+					url = '../../public/body.glb';
+				} else {
+					url = '../body.glb';
+				}
+
 				const loader = new GLTFLoader();
 				
 				loader.load(url, (glb) => {
