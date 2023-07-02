@@ -6,7 +6,13 @@ import Layout from '../layouts/Layout.astro';
 	<div id="webgl"></div>
 
 	<div class="contents">
-		<p>aaa</p>
+		<label for="latitude">緯度</label>
+		<input type="text" name="latitude" placeholder="（-90°〜90°）" id="latitude">
+		<br>
+		<label for="longitude">経度</label>
+		<input type="text" name="longitude" placeholder="（-180°〜180°）" id="longitude">
+		<br>
+		<button type="button" id="send">移動</button>
 	</div>
 </Layout>
 
@@ -141,8 +147,9 @@ import Layout from '../layouts/Layout.astro';
 		paperAirplaneGroup: any;
 		world: any;
 		worldMapTexture: any;
-		pointA: any;
-		pointB: any;
+		startPoint: any;
+		targetPoint: any;
+		startVector: any;
 		frame: any;
 		nowFrame: any;
 		q: any;
@@ -155,11 +162,12 @@ import Layout from '../layouts/Layout.astro';
 		thetaGroup: any;
 		before: any;
 		beforeGroup: any;
+		qFlg: any;
 
 		controls: any;
 		axesHelper: any;
 
-		isDown: any;
+		isClick: any;
 		time: any;
 
 		/**
@@ -178,8 +186,9 @@ import Layout from '../layouts/Layout.astro';
 			this.paperAirplaneGroup;
 			this.world;
 			this.worldMapTexture;
-			this.pointA;
-			this.pointB;
+			this.startPoint;
+			this.targetPoint;
+			this.startVector;
 			this.frame;
 			this.nowFrame;
 			this.q;
@@ -192,29 +201,16 @@ import Layout from '../layouts/Layout.astro';
 			this.thetaGroup;
 			this.before;
 			this.beforeGroup;
+			this.qFlg;
 
 			this.controls;         // オービットコントロール
 			this.axesHelper;       // 軸ヘルパー
 
-			this.isDown = false; // キーの押下状態を保持するフラグ
+			this.isClick = false; // キーの押下状態を保持するフラグ
 			this.time; //経過時間
 
 			// 再帰呼び出しのための this 固定
 			this.render = this.render.bind(this);
-
-			// キーの押下や離す操作を検出できるようにする
-			/* window.addEventListener('keydown', (keyEvent) => {
-				switch (keyEvent.key) {
-					case ' ':
-						this.isDown = true;
-						console.log('keydown')
-						break;
-					default:
-				}
-			}, false);
-			window.addEventListener('keyup', (keyEvent) => {
-				this.isDown = false;
-			}, false); */
 
 			// リサイズイベント
 			window.addEventListener('resize', () => {
@@ -322,8 +318,7 @@ import Layout from '../layouts/Layout.astro';
 			this.material = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
 
 			// 座標
-			this.pointA = new THREE.Vector3(0, 1.5, 1.5);
-			/* this.pointB = new THREE.Vector3(-3, 0, 0); */
+			this.targetPoint;
 
 			// 地球
 			let worldMaterial = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
@@ -333,7 +328,7 @@ import Layout from '../layouts/Layout.astro';
 
 			// モデル
 			this.paperAirplaneGroup = new THREE.Group();
-			this.paperAirplane.position.set(0, 3, 0);
+			this.paperAirplane.position.set(0, 3.0, 0);
 			this.paperAirplane.scale.set(0.25, 0.25, 0.25);
 			this.paperAirplaneGroup.add(this.paperAirplane);
 			this.scene.add(this.paperAirplaneGroup);
@@ -350,6 +345,7 @@ import Layout from '../layouts/Layout.astro';
 			this.scene.add(this.axesHelper);
 
 			// 事前処理
+			this.startPoint = new THREE.Vector3(0.0, 3.0, 0.0);
 			this.frame = 100;
 			this.nowFrame = 0;
 			this.before = 0;
@@ -357,71 +353,86 @@ import Layout from '../layouts/Layout.astro';
 			// ワールド原点座標
 			const vec0 = new THREE.Vector3(0.0, 0.0, 0.0);
 			// 初期のモデルの向きのベクトル
-			const vec3 = new THREE.Vector3(0.0, 0.0, 1.0).normalize();
+			this.startVector = new THREE.Vector3(0.0, 0.0, 1.0).normalize();
 
-			window.addEventListener('keydown', (keyEvent) => {
-				switch (keyEvent.key) {
-					case ' ':
-						this.isDown = true;
+			// クリックイベント
+			const button = document.getElementById("send");
 
-						/* const translateGeoCoords = (latitude, longitude, radius) => {
-							// 仰角
-							const phi = latitude * Math.PI / 180;
-							// 方位角
-							const theta = (longitude - 180) * Math.PI / 180;
+			button.addEventListener('click', () => {
+				this.isClick = true;
 
-							const x = -1 * radius * Math.cos(phi) * Math.cos(theta);
-							const y = radius * Math.sin(phi);
-							const z = radius * Math.cos(phi) * Math.sin(theta);
+				// 入力された緯度・経度を取得
+				const latitude = document.getElementById("latitude").value;
+				const longitude = document.getElementById("longitude").value;
 
-							return new THREE.Vector3(x, y, z);
-						};
+				// 緯度・経度を算出する関数を定義
+				const translateGeoCoords = (latitude, longitude, radius) => {
+					// 仰角
+					const phi = latitude * Math.PI / 180;
+					// 方位角
+					const theta = (longitude - 180) * Math.PI / 180;
 
-						this.pointB = translateGeoCoords(10, 270, 3); */
+					const x = -1 * radius * Math.cos(phi) * Math.cos(theta);
+					const y = radius * Math.sin(phi);
+					const z = -1 * radius * Math.cos(phi) * Math.sin(theta);
 
-						/* グループの制御 */
-						// 紙ヒコーキのベクトル
-						const vec1 = new THREE.Vector3().subVectors(new THREE.Vector3(this.paperAirplane.position.x, this.paperAirplane.position.y, this.paperAirplane.position.z), vec0);
-						// 目的座標のベクトル
-						const vec2 = new THREE.Vector3().subVectors(this.pointA, vec0); //ここを変更してチェックしてます。
-						// 2つのベクトルの直交ベクトルを求める
-						this.axisGroup = new THREE.Vector3().crossVectors(vec1, vec2);
-						// 単位化
-						this.axisGroup.normalize();
-						// 内積でコサインを算出
-						const cosGroup = vec2.dot(vec1);
-						//　コサインをラジアンに変換（総回転量）
-						const radGroup = Math.acos(cosGroup);
-						// ラジアン → 度 に変換
-						this.thetaGroup = radGroup * 180 / Math.PI;
-						// 1フレームの回転量を算出
-						this.tGroup = this.thetaGroup / this.frame;
+					return new THREE.Vector3(x, y, z);
+				};
 
+				/* クリック時の緯度と経度から3次元座標を計算し格納 引数（緯度, 経度, 半径） */
+				this.targetPoint = translateGeoCoords(latitude, longitude, 3);
+				/* グループの制御 */
+				// 紙ヒコーキのベクトル
+				const vec1 = new THREE.Vector3().subVectors(new THREE.Vector3(this.startPoint.x, this.startPoint.y, this.startPoint.z), vec0).normalize();
+				// 目的座標のベクトル
+				const vec2 = new THREE.Vector3().subVectors(this.targetPoint, vec0).normalize();
+				// 2つのベクトルの直交ベクトルを求める
+				this.axisGroup = new THREE.Vector3().crossVectors(vec1, vec2);
+				// 単位化
+				this.axisGroup.normalize();
+				// 内積でコサインを算出
+				const cosGroup = vec2.dot(vec1);
+				//　コサインをラジアンに変換（総回転量）
+				const radGroup = Math.acos(cosGroup);
+				// ラジアン → 度 に変換
+				this.thetaGroup = radGroup * 180 / Math.PI;
+				// 1フレームの回転量を算出
+				this.tGroup = this.thetaGroup / this.frame;
 
-						/* 紙ヒコーキの制御*/
-						// グループを回転させる直交ベクトルとワールド原点から紙ヒコーキまでのベクトルとで直交ベクトルを求める（回転方向のベクトルを求める）
-						const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec1);
-						// 単位化
-						vec4.normalize();
-						// 現在のモデルの向きベクトルと回転方向のベクトルとで直交ベクトルを求める
-						this.axis = new THREE.Vector3().crossVectors(vec3, vec4);
-						// 単位化
-						this.axis.normalize();
-						// 内積でコサインを算出
-						const cos = vec4.dot(vec3);
-						//　コサインをラジアンに変換
-						const rad = Math.acos(cos);
-						// 今回動かしたい分の（差分の）クォータニオンを算出
-						this.q = new THREE.Quaternion().setFromAxisAngle(this.axis, rad);
-						// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
-						this.paperAirplane.quaternion.premultiply(this.q);
-
-
-						break;
-					default:
+				// 2点のクォータニオンを算出し、回転量をから同一線上のベクトルか？判定する。
+				// three.jsの関数.setFromAxisAngle()は、対角が180°でも何故か0ベクトルにならない為、判定から外してる。
+				// ただし限りなく対角上に近づくだけなので、試行回数が多いと段々ズレが生じる可能性がある。
+				const twoPointsW = new THREE.Quaternion().setFromAxisAngle(this.axisGroup, radGroup);
+				if(twoPointsW._w == 1){
+					this.qFlg = false;
+				} else {
+					this.qFlg = true;
 				}
-			}, false);
-		}
+				/* console.log(twoPointsW._w) */
+
+				/* 紙ヒコーキの制御*/
+				// グループを回転させる直交ベクトルとワールド原点から紙ヒコーキまでのベクトルとで直交ベクトルを求める（回転方向のベクトルを求める）
+				const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec1);
+				// 単位化
+				vec4.normalize();
+				// 現在のモデルの向きベクトルと回転方向のベクトルとで直交ベクトルを求める
+				this.axis = new THREE.Vector3().crossVectors(this.startVector, vec4);
+				// 単位化
+				this.axis = this.axis.normalize();
+				console.log(this.axis)
+				// 内積でコサインを算出
+				const cos = this.startVector.dot(vec4);
+				//　コサインをラジアンに変換
+				const rad = Math.acos(cos);
+				// 今回動かしたい分の（差分の）クォータニオンを算出
+				this.q = new THREE.Quaternion().setFromAxisAngle(this.axis, rad);
+				// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
+				this.paperAirplane.quaternion.premultiply(this.q);
+
+				this.startVector = vec4;
+
+		});
+	}
 
 		/**
 		 * 描画処理
@@ -434,8 +445,8 @@ import Layout from '../layouts/Layout.astro';
 			this.controls.update();
 
 
-			if(this.nowFrame <= 100 && this.isDown){
-				console.log('ok')
+			if(this.nowFrame < 100 && this.isClick && this.qFlg){
+				console.log('down')
 				// 現在のフレームに対して、0.0 ~ 1.0まででどれくらい割合を持っているか算出
 				const ratioGroup = (this.tGroup * this.nowFrame) / this.thetaGroup;
 				// イージングをつける
@@ -455,6 +466,20 @@ import Layout from '../layouts/Layout.astro';
 				// 現在のフレームを加算
 				this.nowFrame += 1;
 			}
+
+			// 最終フレームの場合初期化
+			if(this.nowFrame == 100){
+				this.nowFrame = 0;
+				this.before = 0;
+				this.beforeGroup = 0;
+				this.isClick = false;
+				/* console.log(this.targetPoint) */
+				this.startPoint.x = this.targetPoint.x;
+				this.startPoint.y = this.targetPoint.y;
+				this.startPoint.z = this.targetPoint.z;
+				/* console.log(this.startPoint) */
+			}
+
 
 			// レンダラーで描画
 			this.renderer.render(this.scene, this.camera);
