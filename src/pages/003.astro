@@ -410,6 +410,7 @@ import Layout from '../layouts/Layout.astro';
 				}
 				/* console.log(twoPointsW._w) */
 
+
 				/* 紙ヒコーキの制御*/
 				// グループを回転させる直交ベクトルとワールド原点から紙ヒコーキまでのベクトルとで直交ベクトルを求める（回転方向のベクトルを求める）
 				const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec1);
@@ -417,22 +418,23 @@ import Layout from '../layouts/Layout.astro';
 				vec4.normalize();
 				// 現在のモデルの向きベクトルと回転方向のベクトルとで直交ベクトルを求める
 				this.axis = new THREE.Vector3().crossVectors(this.startVector, vec4);
+				console.log(this.axis)
 				// 単位化
 				this.axis = this.axis.normalize();
 				console.log(this.axis)
 				// 内積でコサインを算出
 				const cos = this.startVector.dot(vec4);
-				//　コサインをラジアンに変換
+				// コサインをラジアンに変換
 				const rad = Math.acos(cos);
 				// 今回動かしたい分の（差分の）クォータニオンを算出
 				this.q = new THREE.Quaternion().setFromAxisAngle(this.axis, rad);
 				// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
 				this.paperAirplane.quaternion.premultiply(this.q);
 
-				this.startVector = vec4;
+				this.startVector = this.axis;
 
-		});
-	}
+			});
+		}
 
 		/**
 		 * 描画処理
