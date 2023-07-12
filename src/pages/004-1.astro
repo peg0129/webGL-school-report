@@ -2,18 +2,9 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="003">
+<Layout title="004">
 	<div id="webgl"></div>
 
-	<div class="contents">
-		<label for="latitude">緯度</label>
-		<input type="text" name="latitude" placeholder="（-90°〜90°）" id="latitude">
-		<br>
-		<label for="longitude">経度</label>
-		<input type="text" name="longitude" placeholder="（-180°〜180°）" id="longitude">
-		<br>
-		<button type="button" id="send">移動</button>
-	</div>
 </Layout>
 
 <style>
@@ -42,7 +33,7 @@ import Layout from '../layouts/Layout.astro';
 		// 制御クラスのインスタンスを生成
 		const app = new App3();
 
-		Promise.all([app.loadModelPaperAirplane(), app.loadTexture()]).
+		Promise.all([app.loadTexture()]).
 		then(() => {
 			// 初期化
 			app.init();
@@ -120,56 +111,20 @@ import Layout from '../layouts/Layout.astro';
 			};
 		}
 
-		// 地球と紙ヒコーキの距離
-		static get PAPERAIRPLANE_DISTANCE(){
-			return 3.0;
-		}
-		// 紙ヒコーキのスピード
-		static get PAPERAIRPLANE_SPEED(){
-			return 0.05;
-		}
-		// イージング関数
-		static easeInSine(x) {
-  		return 1 - Math.cos((x * Math.PI) / 2);
-		}
-		static easeInOutQuint(x) {
-			return x < 0.5 ? 16 * x * x * x * x * x : 1 - Math.pow(-2 * x + 2, 5) / 2;
-		}
-
 		renderer: any;
 		scene: any;
 		camera: any;
 		directionalLight: any;
 		ambientLight: any;
 		material: any;
-
-		paperAirplane: any;
-		paperAirplaneGroup: any;
-		world: any;
-		worldMapTexture: any;
-		startPoint: any;
-		targetPoint: any;
-		startVector: any;
-		frame: any;
-		nowFrame: any;
-		q: any;
-		qGroup: any;
-		axis: any;
-		axisGroup: any;
-		paperAirplaneAxis: any;
-		t: any;
-		tGroup: any;
-		theta: any;
-		thetaGroup: any;
-		before: any;
-		beforeGroup: any;
-		qFlg: any;
-
 		controls: any;
 		axesHelper: any;
 
 		isClick: any;
 		time: any;
+
+		plane: any;
+		texture: any;
 
 		/**
 		 * コンストラクタ
@@ -182,34 +137,14 @@ import Layout from '../layouts/Layout.astro';
 			this.directionalLight; // ディレクショナルライト
 			this.ambientLight;     // アンビエントライト
 			this.material;         // マテリアル
-
-			this.paperAirplane;
-			this.paperAirplaneGroup;
-			this.world;
-			this.worldMapTexture;
-			this.startPoint;
-			this.targetPoint;
-			this.startVector;
-			this.frame;
-			this.nowFrame;
-			this.q;
-			this.qGroup;
-			this.axis;
-			this.axisGroup;
-			this.paperAirplaneAxis;
-			this.t;
-			this.tGroup;
-			this.theta;
-			this.thetaGroup;
-			this.before;
-			this.beforeGroup;
-			this.qFlg;
-
 			this.controls;         // オービットコントロール
 			this.axesHelper;       // 軸ヘルパー
 
 			this.isClick = false; // キーの押下状態を保持するフラグ
 			this.time; //経過時間
+
+			this.plane;
+			this.texture;
 
 			// 再帰呼び出しのための this 固定
 			this.render = this.render.bind(this);
@@ -236,7 +171,7 @@ import Layout from '../layouts/Layout.astro';
 				const loader = new THREE.TextureLoader();
 
 				loader.load(url, (texture) => {
-					this.worldMapTexture = texture;
+					this.texture = texture;
 
 					// Promise を解決
 					resolve();
@@ -244,27 +179,6 @@ import Layout from '../layouts/Layout.astro';
 			});
 		}
 
-		// glb load
-		loadModelPaperAirplane() {
-			return new Promise((resolve) => {
-				let url;
-
-				if(location.hostname == '127.0.0.1') {
-					url = '../../public/paper_airplane.glb';
-				} else {
-					url = '../paper_airplane.glb';
-				}
-
-				const loader = new GLTFLoader();
-
-				loader.load(url, (glb) => {
-					this.paperAirplane = glb.scene;
-
-					// Promise を解決
-					resolve();
-				});
-			});
-		}
 
 		/**
 		 * 初期化処理
@@ -319,26 +233,10 @@ import Layout from '../layouts/Layout.astro';
 			// マテリアル
 			this.material = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
 
-			// 座標
-			this.targetPoint;
-
-			// 地球
-			let worldMaterial = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
-			worldMaterial.map = this.worldMapTexture;
-			this.world = new THREE.Mesh(new THREE.SphereGeometry(3, 32, 32), worldMaterial);
-			/* this.scene.add(this.world); */
-
-			// モデル
-			this.paperAirplaneGroup = new THREE.Group();
-			this.paperAirplane.position.set(0, 3.0, 0);
-			this.paperAirplane.scale.set(0.25, 0.25, 0.25);
-			this.paperAirplaneGroup.add(this.paperAirplane);
-			this.scene.add(this.paperAirplaneGroup);
-
 			// コントロール
 			this.controls = new OrbitControls(this.camera, this.renderer.domElement);
 
-			//タイマー
+			// タイマー
 			this.time = new THREE.Clock();
 
 			// ヘルパー
@@ -346,98 +244,59 @@ import Layout from '../layouts/Layout.astro';
 			this.axesHelper = new THREE.AxesHelper(axesBarLength);
 			this.scene.add(this.axesHelper);
 
-			// 事前処理
-			this.startPoint = new THREE.Vector3(0.0, 3.0, 0.0);
-			this.frame = 100;
-			this.nowFrame = 0;
-			this.before = 0;
-			this.beforeGroup = 0;
-			// ワールド原点座標
-			const vec0 = new THREE.Vector3(0.0, 0.0, 0.0);
-			// モデルの向きの初期ベクトル
-			this.startVector = new THREE.Vector3(0.0, 0.0, 1.0).normalize();
-			// モデルの軸の初期ベクトル
-			this.paperAirplaneAxis;
+			// 処理
+			/* const planeGeometry = new THREE.PlaneGeometry(5.0 / window.innerWidth * window.innerWidth, 5.0 / window.innerHeight * window.innerHeight);
+			const planeMaterial = new THREE.MeshBasicMaterial({map: this.texture });
+			this.plane = new THREE.Mesh(planeGeometry, planeMaterial);
+			this.scene.add(this.plane);
+			console.log(window.innerWidth, window.innerHeight) */
 
-			// クリックイベント
-			const button = document.getElementById("send");
+			const positionCount = 16;
+			const rad = 360 / 16 * Math.PI / 180;
+			const radius = 3;
+			let positionArray = [];
+			let planeArray = [];
+			// ワールド座標
+			const worldPoint = new THREE.Vector3(0.0, 0.0, 0.0);
+			// 基準座標
+			const initPoint = new THREE.Vector3(1.0, 0.0, 0.0);
+			// 回転基準ベクトル
+			const vec1 = new THREE.Vector3().subVectors(initPoint, worldPoint).normalize();
 
-			button.addEventListener('click', () => {
-				this.isClick = true;
+			for(let i = 0; i < positionCount; i++){
+				let array = [];
+				const x = radius * Math.cos(rad * i + 1); 
+				array.push(x); 
+				const z = radius * Math.sin(rad * i + 1);
+				array.push(z);
+				positionArray.push(array);
+			}
 
-				// 入力された緯度・経度を取得
-				const latitude = document.getElementById("latitude").value;
-				const longitude = document.getElementById("longitude").value;
+			console.log(positionArray)
 
-				// 緯度・経度を算出する関数を定義
-				const translateGeoCoords = (latitude, longitude, radius) => {
-					// 仰角
-					const phi = latitude * Math.PI / 180;
-					// 方位角
-					const theta = (longitude - 180) * Math.PI / 180;
+			positionArray.forEach((element, index) => {
+				const planeGeometry = new THREE.PlaneGeometry(1, 1);
+				const planeMaterial = new THREE.MeshBasicMaterial({map: this.texture, side: THREE.DoubleSide });
+				planeArray[index] = new THREE.Mesh(planeGeometry, planeMaterial);
+				planeArray[index].position.x = element[0];
+				planeArray[index].position.z = element[1];
 
-					const x = -1 * radius * Math.cos(phi) * Math.cos(theta);
-					const y = radius * Math.sin(phi);
-					const z = -1 * radius * Math.cos(phi) * Math.sin(theta);
-
-					return new THREE.Vector3(x, y, z);
-				};
-
-				/* クリック時の緯度と経度から3次元座標を計算し格納 引数（緯度, 経度, 半径） */
-				this.targetPoint = translateGeoCoords(latitude, longitude, 3);
-				console.log(this.targetPoint)
-				/* グループの制御 */
-				// 原点→紙ヒコーキのベクトル
-				const vec1 = new THREE.Vector3().subVectors(new THREE.Vector3(this.startPoint.x, this.startPoint.y, this.startPoint.z), vec0).normalize();
-				// 原点→目的座標のベクトル
-				const vec2 = new THREE.Vector3().subVectors(this.targetPoint, vec0).normalize();
+				// 原点→自身の座標から目標のベクトルを求める
+				const vec2 = new THREE.Vector3().subVectors(new THREE.Vector3(planeArray[index].position.x, planeArray[index].position.y, planeArray[index].position.z), worldPoint).normalize();
 				// 2つのベクトルの直交ベクトルを求める
-				this.axisGroup = new THREE.Vector3().crossVectors(vec1, vec2);
-				// 単位化
-				this.axisGroup.normalize();
+				const axis = new THREE.Vector3().crossVectors(vec1, vec2).normalize();
 				// 内積でコサインを算出
-				const cosGroup = vec2.dot(vec1);
-				//　コサインをラジアンに変換（総回転量）
-				const radGroup = Math.acos(cosGroup);
-				// ラジアン → 度 に変換
-				this.thetaGroup = radGroup * 180 / Math.PI;
-				// 1フレームの回転量を算出
-				this.tGroup = this.thetaGroup / this.frame;
-
-				// 2点のクォータニオンを算出し、回転量をから同一線上のベクトルか？判定する。
-				// three.jsの関数.setFromAxisAngle()は、対角が180°でも何故か0ベクトルにならない為、判定から外してる。
-				// ただし限りなく対角上に近づくだけなので、試行回数が多いと段々ズレが生じる可能性がある。
-				const twoPointsW = new THREE.Quaternion().setFromAxisAngle(this.axisGroup, radGroup);
-				if(twoPointsW._w == 1){
-					this.qFlg = false;
-				} else {
-					this.qFlg = true;
-				}
-				/* console.log(twoPointsW._w) */
-
-
-				/* 紙ヒコーキの制御*/
-				// 移動後の機首のベクトルを求める
-				const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec2);
-				// 単位化
-				vec4.normalize();
-				// 飛行機の回転軸を求める
-				this.paperAirplaneAxis = new THREE.Vector3().crossVectors(this.startVector, this.axisGroup);
-				// 単位化
-				this.paperAirplaneAxis.normalize();
-				// 内積でコサインを算出
-				const cos = vec2.dot(this.startVector);
+				const cos = vec1.dot(vec2);
 				// コサインをラジアンに変換
-				const rad = Math.acos(cos);
-				// 今回動かしたい分の（差分の）クォータニオンを算出
-				this.q = new THREE.Quaternion().setFromAxisAngle(this.paperAirplaneAxis, rad);
-				// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
-				this.paperAirplaneGroup.quaternion.premultiply(this.q);
-
-				this.startVector = vec4;
-				this.paperAirplaneAxis = vec2;
-
+				const rotateRad = Math.acos(cos);
+				// クォータニオンを求める
+				const q = new THREE.Quaternion().setFromAxisAngle(axis, rotateRad);
+				// クォータニオンをかけて加算させて、回転させる
+				planeArray[index].quaternion.premultiply(q);
+				// シーンに追加
+				this.scene.add(planeArray[index]);
 			});
+			
 		}
 
 		/**
@@ -449,9 +308,6 @@ import Layout from '../layouts/Layout.astro';
 
 			// コントロールを更新
 			this.controls.update();
-
-
-
 
 
 			// レンダラーで描画
