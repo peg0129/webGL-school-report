@@ -5,6 +5,15 @@ import Layout from '../layouts/Layout.astro';
 <Layout title="004">
 	<div id="webgl"></div>
 
+	<div class="text">
+		<h1>webGL school report</h1>
+		<h2>004-1</h2>
+		<ul>
+			<li>・scroll animation</li>
+			<li>・raycaster hover animation</li>
+			<li>・postprocessing</li>
+		</ul>
+	</div>
 </Layout>
 
 <style>
@@ -12,6 +21,7 @@ import Layout from '../layouts/Layout.astro';
 		position: fixed;
 		top: 0;
 		left: 0;
+		z-index: -1;
 	}
 
 	.contents{
@@ -20,12 +30,56 @@ import Layout from '../layouts/Layout.astro';
 		bottom: 0;
 		right: 0;
 	}
+
+	body{
+		/*IE(Internet Explorer)・Microsoft Edgeへの対応*/
+		-ms-overflow-style: none;
+		/*Firefoxへの対応*/
+		scrollbar-width: none;
+	}
+
+	body::-webkit-scrollbar{
+		display: none;
+	}
+	
+	.text{
+		position: fixed;
+		top: 0;
+		left: 0;
+		font-family: 'Montserrat', sans-serif;
+		margin: 20px 0 0 20px;
+	}
+
+	.text h1{
+		font-weight: 800;
+		font-size: 48px
+	}
+
+	.text h2{
+		font-weight: 800;
+		font-size: 32px
+	}
+
+	.text ul{
+		list-style: none;
+		margin: 20px 0 0;
+	}
+
+	.text ul li{
+		font-weight: 500;
+		font-size: 16px
+	}
 </style>
 
 <script>
 	import * as THREE from 'three';
 	import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+	import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 	import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+	import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+	import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+	import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+	import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 	import { gsap } from "gsap";
 
 	// DOM がパースされたことを検出するイベントを設定
@@ -56,15 +110,15 @@ import Layout from '../layouts/Layout.astro';
 				// 描画する空間のアスペクト比（縦横比）
 				aspect: window.innerWidth / window.innerHeight,
 				// 描画する空間のニアクリップ面（最近面）
-				near: 0.1,
+				near: 5,
 				// 描画する空間のファークリップ面（最遠面）
-				far: 20.0,
+				far: 100.0,
 				// カメラの位置
 				x: 0.0,
-				y: 2.0,
-				z: 10.0,
+				y: 5.0,
+				z: 20.0,
 				// カメラの中止点
-				lookAt: new THREE.Vector3(0.0, 0.0, 0.0),
+				lookAt: new THREE.Vector3(2.0, 0.0, 0.0),
 			};
 		}
 		/**
@@ -110,6 +164,15 @@ import Layout from '../layouts/Layout.astro';
 				side: THREE.DoubleSide, // THREE.FrontSide THREE.BackSide THREE.DoubleSide
 			};
 		}
+		/**
+		 * イージング関数
+		 */
+		static easeInSine(x) {
+  		return 1 - Math.cos((x * Math.PI) / 2);
+		}
+		static easeInOutQuint(x) {
+			return x < 0.5 ? 16 * x * x * x * x * x : 1 - Math.pow(-2 * x + 2, 5) / 2;
+		}
 
 		renderer: any;
 		scene: any;
@@ -124,7 +187,22 @@ import Layout from '../layouts/Layout.astro';
 		time: any;
 
 		plane: any;
+		planeArray: any;
+		planeGroup: any;
+		positionArray: any;
 		texture: any;
+		lastScroll: any;
+		scrollDifference: any;
+		scrollFlg: any;
+		easeingFrame: any;
+		beforeAmount: any;
+		UPPER_LIMIT: any;
+		LOWER_LIMIT: any;
+		speed: any;
+		defaultSpeed: any;
+		raycaster: any;
+		raycasterLockFlg: any;
+		postprocessing: any;
 
 		/**
 		 * コンストラクタ
@@ -144,7 +222,22 @@ import Layout from '../layouts/Layout.astro';
 			this.time; //経過時間
 
 			this.plane;
+			this.planeArray;
+			this.planeGroup;
+			this.positionArray;
 			this.texture;
+			this.lastScroll;
+			this.scrollDifference;
+			this.scrollFlg;
+			this.easeingFrame;
+			this.beforeAmount;
+			this.UPPER_LIMIT;
+			this.LOWER_LIMIT;
+			this.speed;
+			this.defaultSpeed;
+			this.raycaster;
+			this.raycasterLockFlg;
+			this.postprocessing;
 
 			// 再帰呼び出しのための this 固定
 			this.render = this.render.bind(this);
@@ -155,7 +248,100 @@ import Layout from '../layouts/Layout.astro';
 				this.camera.aspect = window.innerWidth / window.innerHeight;
 				this.camera.updateProjectionMatrix();
 			}, false);
+
+			
+			//　スクロールイベント
+			this.defaultSpeed = 0.0002;
+			this.LOWER_LIMIT = 1000;
+			this.UPPER_LIMIT = 3000;
+			this.lastScroll = this.LOWER_LIMIT;
+			const range = this.UPPER_LIMIT - this.LOWER_LIMIT;
+			this.scrollDifference = 0;
+			this.easeingFrame = 0;
+			this.scrollFlg = false;
+			this.beforeAmount = 0;
+			// 初期位置を設定する
+			window.scrollTo(0, this.lastScroll);
+			console.log(this.lastScroll)
+			// スクロール範囲外まで余裕を持って body の高さを設定する
+			const bodyHeight = this.UPPER_LIMIT + window.innerHeight + this.LOWER_LIMIT;
+			document.body.style.height = `${bodyHeight}px`
+
+			window.addEventListener('scroll', ()=> {
+				let scroll = window.scrollY || document.documentElement.scrollTop;
+				this.easeingFrame = 100;
+				this.scrollFlg = true;
+				this.scrollDifference = scroll - this.lastScroll;
+
+				// スクロールを下限y:1000〜上限y:3000までの範囲に制御する
+				// 下にスクロール
+				if (scroll > this.lastScroll) {
+					// デフォルトのスピードより大きい値に更新して、planeGroupの回転量を上げる
+					this.speed -= 0.003
+
+					if (scroll >= this.UPPER_LIMIT) {
+						window.scrollTo(0, scroll - range)
+						this.lastScroll = scroll - range
+					} else {
+						this.lastScroll = scroll
+					}
+				// 上にスクロール
+				} else if (scroll < this.lastScroll) {
+					// デフォルトのスピードより大きい値に更新して、planeGroupの回転量を上げる
+					this.speed += 0.003
+
+					if (scroll <= this.LOWER_LIMIT) {
+						window.scrollTo(0, scroll + range)
+						this.lastScroll = scroll + range
+					} else {
+						this.lastScroll = scroll
+					}
+				}
+			});
+
+
+			// Raycaster のインスタンスを生成
+			this.raycaster = new THREE.Raycaster();
+			// flgを初期化
+			this.raycasterLockFlg = false;
+			// マウスムーブイベント
+			window.addEventListener('mousemove', (mouseEvent) => {
+				// スクリーン空間の座標系をレイキャスター用に正規化する（-1.0 ~ 1.0 の範囲）
+				const x = mouseEvent.clientX / window.innerWidth * 2.0 - 1.0;
+				const y = mouseEvent.clientY / window.innerHeight * 2.0 - 1.0;
+				// スクリーン空間は上下が反転している点に注意（Y だけ符号を反転させる）
+				const v = new THREE.Vector2(x, -y);
+				// レイキャスターに正規化済みマウス座標とカメラを指定する
+				this.raycaster.setFromCamera(v, this.camera);
+				// scene に含まれるすべてのオブジェクトを対象にレイキャストする
+				// intersectObjects（配列 Array）
+				const intersects = this.raycaster.intersectObjects(this.planeArray);
+				// レイ判定
+				if (intersects.length > 0 ) {
+					// 衝突しているplaneをtrueに変更
+					intersects[0].object.userData = true;
+					// flgをtrueに変更
+					this.raycasterLockFlg = true;
+
+					// 最前面以外のplaneをfalseに変更
+					this.planeArray.forEach((element) => {
+						if(element.userData == true){
+
+						} else {
+							element.userData = false;
+						}
+					});
+				} else{
+					this.planeArray.forEach((element) => {
+						/* console.log('reset') */
+						// リセット
+						element.userData = false;
+						this.raycasterLockFlg = false;
+					});
+				}
+			}, false);
 		}
+
 
 		// texture load
 		loadTexture() {
@@ -195,7 +381,6 @@ import Layout from '../layouts/Layout.astro';
 
 			// シーン
 			this.scene = new THREE.Scene();
-			/* this.scene.environment = this.hdr;  */
 
 			// カメラ
 			this.camera = new THREE.PerspectiveCamera(
@@ -234,28 +419,26 @@ import Layout from '../layouts/Layout.astro';
 			this.material = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
 
 			// コントロール
-			this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+			/* this.controls = new OrbitControls(this.camera, this.renderer.domElement); */
 
 			// タイマー
 			this.time = new THREE.Clock();
 
 			// ヘルパー
-			const axesBarLength = 5.0;
+			/* const axesBarLength = 5.0;
 			this.axesHelper = new THREE.AxesHelper(axesBarLength);
-			this.scene.add(this.axesHelper);
+			this.scene.add(this.axesHelper); */
 
-			// 処理
-			/* const planeGeometry = new THREE.PlaneGeometry(5.0 / window.innerWidth * window.innerWidth, 5.0 / window.innerHeight * window.innerHeight);
-			const planeMaterial = new THREE.MeshBasicMaterial({map: this.texture });
-			this.plane = new THREE.Mesh(planeGeometry, planeMaterial);
-			this.scene.add(this.plane);
-			console.log(window.innerWidth, window.innerHeight) */
-
-			const positionCount = 16;
-			const rad = 360 / 16 * Math.PI / 180;
+			// planeの枚数
+			const planeCount = 16;
+			// planeを等間隔で円弧に置いた時の角度
+			const rad = 360 / planeCount * Math.PI / 180;
+			// 反映
 			const radius = 3;
-			let positionArray = [];
-			let planeArray = [];
+			// 初期化
+			this.positionArray = [];
+			this.planeArray = [];
+			this.planeGroup = new THREE.Group();
 			// ワールド座標
 			const worldPoint = new THREE.Vector3(0.0, 0.0, 0.0);
 			// 基準座標
@@ -263,26 +446,37 @@ import Layout from '../layouts/Layout.astro';
 			// 回転基準ベクトル
 			const vec1 = new THREE.Vector3().subVectors(initPoint, worldPoint).normalize();
 
-			for(let i = 0; i < positionCount; i++){
+			// 枚数分、円弧上での座標を決定
+			for(let i = 0; i < planeCount; i++){
 				let array = [];
+				// デフォルトx
 				const x = radius * Math.cos(rad * i + 1); 
 				array.push(x); 
+				// デフォルトz
 				const z = radius * Math.sin(rad * i + 1);
 				array.push(z);
-				positionArray.push(array);
+				// マウスオーバー時x
+				const xOver = radius * 1.5 * Math.cos(rad * i + 1); 
+				array.push(xOver); 
+				// マウスオーバー時y
+				const zOver = radius * 1.5 * Math.sin(rad * i + 1);
+				array.push(zOver);
+				// plane1枚分のarrayをpositionArrayへpush
+				this.positionArray.push(array)
 			}
 
-			console.log(positionArray)
-
-			positionArray.forEach((element, index) => {
-				const planeGeometry = new THREE.PlaneGeometry(1, 1);
+			// 枚数分planeをインスタンス化
+			this.positionArray.forEach((element, index) => {
+				const planeGeometry = new THREE.PlaneGeometry(1.5, 1);
 				const planeMaterial = new THREE.MeshBasicMaterial({map: this.texture, side: THREE.DoubleSide });
-				planeArray[index] = new THREE.Mesh(planeGeometry, planeMaterial);
-				planeArray[index].position.x = element[0];
-				planeArray[index].position.z = element[1];
+				this.planeArray[index] = new THREE.Mesh(planeGeometry, planeMaterial);
+				this.planeArray[index].position.x = element[0]; // x
+				this.planeArray[index].position.z = element[1]; // y
+				this.planeArray[index].name = index;
+				this.planeArray[index].userData = false;
 
 				// 原点→自身の座標から目標のベクトルを求める
-				const vec2 = new THREE.Vector3().subVectors(new THREE.Vector3(planeArray[index].position.x, planeArray[index].position.y, planeArray[index].position.z), worldPoint).normalize();
+				const vec2 = new THREE.Vector3().subVectors(new THREE.Vector3(this.planeArray[index].position.x, this.planeArray[index].position.y, this.planeArray[index].position.z), worldPoint).normalize();
 				// 2つのベクトルの直交ベクトルを求める
 				const axis = new THREE.Vector3().crossVectors(vec1, vec2).normalize();
 				// 内積でコサインを算出
@@ -292,11 +486,44 @@ import Layout from '../layouts/Layout.astro';
 				// クォータニオンを求める
 				const q = new THREE.Quaternion().setFromAxisAngle(axis, rotateRad);
 				// クォータニオンをかけて加算させて、回転させる
-				planeArray[index].quaternion.premultiply(q);
-				// シーンに追加
-				this.scene.add(planeArray[index]);
+				this.planeArray[index].quaternion.premultiply(q);
+				//　planeをグループに追加
+				this.planeGroup.add(this.planeArray[index]);
 			});
-			
+
+			// グループの初期値を定義
+			this.planeGroup.scale.set(4,4,4)
+			this.planeGroup.position.x = -7;
+			// シーンにグループを追加
+			this.scene.add(this.planeGroup);
+
+			// ポストプロセス処理
+			this.postprocessing = {};
+			const composer = new EffectComposer(this.renderer);
+			const renderPass = new RenderPass(this.scene, this.camera);
+			composer.addPass( renderPass );
+			const bokehPass = new BokehPass(this.scene, this.camera, {
+				focus: 10.0,
+				aperture: 10.0 * 0.00001,
+				maxblur: 0.014
+			} );
+			composer.addPass( bokehPass );
+
+			this.postprocessing.composer = composer;
+			this.postprocessing.bokeh = bokehPass;
+
+			// GUI
+			const effectController = {
+				focus: 10.0,
+				aperture: 10.0 * 0.00001,
+				maxblur: 0.014
+			};
+
+			const gui = new GUI();
+			gui.add( effectController, 'focus', 0.0, 500.0, 10.0 ).onChange( () => {this.postprocessing.bokeh.uniforms[ 'focus' ].value = effectController.focus} );
+			gui.add( effectController, 'aperture', 0.0, 10.0, 1.0 ).onChange( () => {this.postprocessing.bokeh.uniforms[ 'aperture' ].value = effectController.aperture * 0.00001} );
+			gui.add( effectController, 'maxblur', 0.0, 0.05, 0.001 ).onChange( () => {this.postprocessing.bokeh.uniforms[ 'maxblur' ].value = effectController.maxblur} );
+			gui.close();
 		}
 
 		/**
@@ -307,11 +534,51 @@ import Layout from '../layouts/Layout.astro';
 			requestAnimationFrame(this.render);
 
 			// コントロールを更新
-			this.controls.update();
+			/* this.controls.update(); */
 
+			// speedがデフォルト値と違う場合
+			if (this.defaultSpeed !== this.speed) {
+				const delta = this.speed - this.defaultSpeed;
+				// Math.abs() …絶対値を取得、マイナスをプラスに
+				// Number.EPSILON…0 < Number.EPSILON < 1 の範囲以上
+				if (Math.abs(delta) > Number.EPSILON) {
+					// 現在のスピードとデフォルトスピードの差分を補正分小さくし、引き続けてデフォルトへ近づける
+					this.speed -= delta * 0.05;
+				} else {
+					// 差分が限りなく0に近づいたらデフォルト値に戻して、引き続けないようにする
+					this.speed = this.defaultSpeed;
+				}
+    	}
+			// スピードをrotationに加算
+			this.planeGroup.rotation.y += this.speed;
+
+			// plane全てを更新
+			this.planeArray.forEach((element, index) => {
+				if (element.userData === true) {
+					const delta1 = this.positionArray[index][2] - element.position.x;
+					const delta2 = this.positionArray[index][3] - element.position.z;
+					if(Math.abs(delta1) > Number.EPSILON){
+						element.position.x += delta1 * 0.05;
+					}
+					if(Math.abs(delta2) > Number.EPSILON){
+						element.position.z += delta2 * 0.05;
+					}
+				} else {
+					const delta1 = this.positionArray[index][0] - element.position.x;
+					const delta2 = this.positionArray[index][1] - element.position.z;
+					if(Math.abs(delta1) > Number.EPSILON){
+						element.position.x += delta1 * 0.05;
+					}
+					if(Math.abs(delta2) > Number.EPSILON){
+						element.position.z += delta2 * 0.05;
+					}
+				}
+			})
 
 			// レンダラーで描画
-			this.renderer.render(this.scene, this.camera);
+			/* this.renderer.render(this.scene, this.camera); */
+			// レンダラーでなくコンポーザーに対して描画処理を実行
+			this.postprocessing.composer.render();
 		}
 	}
 

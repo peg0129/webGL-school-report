@@ -451,8 +451,40 @@ import Layout from '../layouts/Layout.astro';
 			this.controls.update();
 
 
+			if(this.nowFrame < 100 && this.isClick && this.qFlg){
+				console.log('down')
+				// 現在のフレームに対して、0.0 ~ 1.0まででどれくらい割合を持っているか算出
+				const ratioGroup = (this.tGroup * this.nowFrame) / this.thetaGroup;
+				// イージングをつける
+				const eGroup = App3.easeInOutQuint(ratioGroup);
+				// イージングをつけた割合を総回転量にかけて、現在フレームまでのイージングがかかった成分を算出
+				const easeInSineThetaGroup = eGroup * this.thetaGroup;
+				// 今回の結果から前回の結果を引いて、1フレームで動かしたい分の度数を算出
+				const differenceGroup = easeInSineThetaGroup - this.beforeGroup;
+				// 次回の計算用に今回の結果を保存（差分でなくトータル） 
+				this.beforeGroup = easeInSineThetaGroup;
+				// 度数 → ラジアン に変換
+				const radGroup = differenceGroup * Math.PI / 180;
+				// 今回動かしたい分の（差分の）クォータニオンを算出
+				this.qGroup = new THREE.Quaternion().setFromAxisAngle(this.axisGroup, radGroup);
+				// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
+				this.paperAirplaneGroup.quaternion.premultiply(this.qGroup);
+				// 現在のフレームを加算
+				this.nowFrame += 1;
+			}
 
-
+			// 最終フレームの場合初期化
+			if(this.nowFrame == 100){
+				this.nowFrame = 0;
+				this.before = 0;
+				this.beforeGroup = 0;
+				this.isClick = false;
+				/* console.log(this.targetPoint) */
+				this.startPoint.x = this.targetPoint.x;
+				this.startPoint.y = this.targetPoint.y;
+				this.startPoint.z = this.targetPoint.z;
+				/* console.log(this.startPoint) */
+			}
 
 			// レンダラーで描画
 			this.renderer.render(this.scene, this.camera);
@@ -460,3 +492,5 @@ import Layout from '../layouts/Layout.astro';
 	}
 
 </script>
+
+

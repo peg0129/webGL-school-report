@@ -59,7 +59,7 @@ import Layout from '../layouts/Layout.astro';
 			// 平行投影（正射影）変換用のパラメータを計算する
 			const aspect = window.innerWidth / window.innerHeight; // アスペクト比
 			const scale = App3.CAMERA_SCALE;                       // 切り取る空間の広さ（スケール）
-			const horizontal = scale * aspect;                     // 横方向のスケール ※1 (0, 0)から上下にこの値をとる positionやscaleが画面に写る最大値
+			const horizontal = scale;                     // 横方向のスケール ※1 (0, 0)から上下にこの値をとる positionやscaleが画面に写る最大値
 			const vertiacal = scale;                               // 縦方向のスケール ※1 (0, 0)から上下にこの値をとる positionやscaleが画面に写る最大値
 			return {
 				left: -horizontal,  // 切り取る空間の左端までの距離
@@ -236,11 +236,11 @@ import Layout from '../layouts/Layout.astro';
 			// リサイズイベント
 			window.addEventListener('resize', () => {
 				// scaleをレスポンシブする処理
-				this.planeGroup.scale.x = this.planeGroup.scale.x * (window.innerWidth / this.widthInit);
+				/* this.planeGroup.scale.x = this.planeGroup.scale.x * (window.innerWidth / this.widthInit); */
 				// y軸が勝手にあってしまうのは聞く。
 				/* this.planeGroup.scale.y = this.planeGroup.scale.y * (window.innerHeight / this.heightInit); */ //yはwindouサイズで決めた方が、幅に応じてレスポンスするはず。
 				// 現在のウィンドウサイズ（横幅）を更新
-				this.widthInit = window.innerWidth;
+				/* this.widthInit = window.innerWidth; */
 				/* this.heightInit = window.innerHeight; */
 
 				// カメラの更新
@@ -248,7 +248,7 @@ import Layout from '../layouts/Layout.astro';
 				// OrthographicCamera 用のパラメータを求める
 				const aspect = window.innerWidth / window.innerHeight;
 				const scale = App3.CAMERA_SCALE;
-				const horizontal = scale * aspect;
+				const horizontal = scale;
 				const vertiacal = scale;
 				this.camera.left = -horizontal;
 				this.camera.right = horizontal;
@@ -371,7 +371,7 @@ import Layout from '../layouts/Layout.astro';
 			const planeMaterial = new THREE.MeshBasicMaterial({map: this.texture });
 			/* const planeMaterial = new THREE.MeshBasicMaterial({color: '#000' }); */
 			// グループにplaneを追加
-			for(let a = 0; a < line; a++){
+/* 			for(let a = 0; a < line; a++){
 				for(let b = 0; b < column; b++){
 					const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 
@@ -384,13 +384,13 @@ import Layout from '../layouts/Layout.astro';
 					// 配列にplane情報を追加（ray判定用）
 					this.planeArray.push(plane);
 				}
-			}
+			} */
+
+			const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), planeMaterial);
+			this.planeGroup.add(plane);
 
 			// シーンにグループを追加
 			this.scene.add(this.planeGroup);
-			const aaa = (60 / 2) * (Math.PI / 180);
-			const dist = 2000 / 2 / Math.tan(aaa);
-			console.log(dist)
 		}
 
 		/**
