@@ -192,12 +192,8 @@ import Layout from '../layouts/Layout.astro';
 		positionArray: any;
 		texture: any;
 		lastScroll: any;
-		scrollDifference: any;
-		scrollFlg: any;
-		easeingFrame: any;
-		beforeAmount: any;
-		UPPER_LIMIT: any;
-		LOWER_LIMIT: any;
+		upper: any;
+		lower: any;
 		speed: any;
 		defaultSpeed: any;
 		raycaster: any;
@@ -227,12 +223,8 @@ import Layout from '../layouts/Layout.astro';
 			this.positionArray;
 			this.texture;
 			this.lastScroll;
-			this.scrollDifference;
-			this.scrollFlg;
-			this.easeingFrame;
-			this.beforeAmount;
-			this.UPPER_LIMIT;
-			this.LOWER_LIMIT;
+			this.upper;
+			this.lower;
 			this.speed;
 			this.defaultSpeed;
 			this.raycaster;
@@ -252,26 +244,19 @@ import Layout from '../layouts/Layout.astro';
 			
 			//　スクロールイベント
 			this.defaultSpeed = 0.0002;
-			this.LOWER_LIMIT = 1000;
-			this.UPPER_LIMIT = 3000;
-			this.lastScroll = this.LOWER_LIMIT;
-			const range = this.UPPER_LIMIT - this.LOWER_LIMIT;
-			this.scrollDifference = 0;
-			this.easeingFrame = 0;
-			this.scrollFlg = false;
-			this.beforeAmount = 0;
+			this.lower = 1000;
+			this.upper = 3000;
+			this.lastScroll = this.lower;
+			const range = this.upper - this.lower;
 			// 初期位置を設定する
 			window.scrollTo(0, this.lastScroll);
 			console.log(this.lastScroll)
 			// スクロール範囲外まで余裕を持って body の高さを設定する
-			const bodyHeight = this.UPPER_LIMIT + window.innerHeight + this.LOWER_LIMIT;
+			const bodyHeight = this.upper + window.innerHeight + this.lower;
 			document.body.style.height = `${bodyHeight}px`
 
 			window.addEventListener('scroll', ()=> {
 				let scroll = window.scrollY || document.documentElement.scrollTop;
-				this.easeingFrame = 100;
-				this.scrollFlg = true;
-				this.scrollDifference = scroll - this.lastScroll;
 
 				// スクロールを下限y:1000〜上限y:3000までの範囲に制御する
 				// 下にスクロール
@@ -279,7 +264,7 @@ import Layout from '../layouts/Layout.astro';
 					// デフォルトのスピードより大きい値に更新して、planeGroupの回転量を上げる
 					this.speed -= 0.003
 
-					if (scroll >= this.UPPER_LIMIT) {
+					if (scroll >= this.upper) {
 						window.scrollTo(0, scroll - range)
 						this.lastScroll = scroll - range
 					} else {
@@ -290,7 +275,7 @@ import Layout from '../layouts/Layout.astro';
 					// デフォルトのスピードより大きい値に更新して、planeGroupの回転量を上げる
 					this.speed += 0.003
 
-					if (scroll <= this.LOWER_LIMIT) {
+					if (scroll <= this.lower) {
 						window.scrollTo(0, scroll + range)
 						this.lastScroll = scroll + range
 					} else {
