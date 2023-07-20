@@ -675,7 +675,6 @@ import Layout from '../layouts/Layout.astro';
 								// 回転後に機首のベクトルを更新
 								this.startVector = vec4;
 							} else {
-							console.log('airplane cross not 0')
 							// 総回転量を180°にする
 							const rad = Math.PI;
 							// 今回動かしたい分の（差分の）クォータニオンを算出
@@ -686,6 +685,7 @@ import Layout from '../layouts/Layout.astro';
 							this.startVector = vec4;
 							}
 						} else {
+							console.log('airplane cross not 0')
 							this.paperAirplaneAxis.normalize();
 							// 内積でコサインを算出
 							const cos = vec3.dot(this.startVector);
