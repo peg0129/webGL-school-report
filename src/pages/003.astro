@@ -5,14 +5,24 @@ import Layout from '../layouts/Layout.astro';
 <Layout title="003">
 	<div id="webgl"></div>
 
+	<div class="text">
+		<h1>webGL school report</h1>
+		<h2>003</h2>
+		<ul>
+			<li>・Quaternion control</li>
+			<li>・Easing animation</li>
+			<li>・Shadow</li>
+		</ul>
+	</div>
+
 	<div class="contents">
-		<label for="latitude">緯度</label>
+		<label for="latitude">latitude</label>
 		<input type="text" name="latitude" placeholder="（-90°〜90°）" id="latitude">
 		<br>
-		<label for="longitude">経度</label>
+		<label for="longitude">longitude</label>
 		<input type="text" name="longitude" placeholder="（-180°〜180°）" id="longitude">
 		<br>
-		<button type="button" id="send">移動</button>
+		<button type="button" id="send">move</button>
 	</div>
 </Layout>
 
@@ -23,11 +33,96 @@ import Layout from '../layouts/Layout.astro';
 		left: 0;
 	}
 
+	.text{
+		position: fixed;
+		top: 0;
+		left: 0;
+		font-family: 'Montserrat', sans-serif;
+		margin: 20px 0 0 20px;
+	}
+
+	.text h1{
+		font-weight: 800;
+		font-size: 48px
+	}
+
+	.text h2{
+		font-weight: 800;
+		font-size: 32px
+	}
+
+	.text ul{
+		list-style: none;
+		margin: 20px 0 0;
+	}
+
+	.text ul li{
+		font-weight: 500;
+		font-size: 16px
+	}
+
 	.contents{
 		position: fixed;
 		z-index: 100;
-		bottom: 0;
-		right: 0;
+		bottom: 4%;
+		right: 2%;
+	}
+
+	.contents label{
+		font-family: 'Montserrat', sans-serif;
+		font-weight: 800;
+		line-height: 2;
+		letter-spacing: 0.04em;
+	}
+
+	.contents input{
+		width: 100%;
+		font-size: 16px;
+		border: none;
+		border-radius: 5px;
+		line-height: 1.5;
+		padding: 0 5px;
+	}
+
+	button {
+		padding: 0;
+		font-family: inherit;
+		appearance: none;
+		cursor: pointer;
+		background-color: transparent;
+		border: none;
+	}
+
+	#send{
+		font-family: 'Montserrat', sans-serif;
+		font-weight: 800;
+		font-size: 24px;
+		letter-spacing: 0.04em;
+		margin: 30px auto 0;
+		width: 130px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		aspect-ratio: 1.5 / 0.7;
+		color: #222;
+		background-color: #efefef;
+		border-radius: 10px;
+		box-shadow: -4px -4px 8px #fff, 4px 4px 8px rgb(0 0 0 / 24%);
+	}
+
+	@media (any-hover: hover) {
+		#send {
+			transition: box-shadow 0.4s;
+		}
+
+		#send:hover {
+			box-shadow: -2px -2px 4px #fff, 2px 2px 4px rgb(0 0 0 / 24%);
+		}
+
+		#send:active {
+			background-color: #ebebeb;
+			box-shadow: inset 4px 4px 8px rgb(0 0 0 / 16%);
+		}
 	}
 </style>
 
@@ -35,6 +130,8 @@ import Layout from '../layouts/Layout.astro';
 	import * as THREE from 'three';
 	import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 	import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+	import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+	import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
 	import { gsap } from "gsap";
 
 	// DOM がパースされたことを検出するイベントを設定
@@ -42,7 +139,7 @@ import Layout from '../layouts/Layout.astro';
 		// 制御クラスのインスタンスを生成
 		const app = new App3();
 
-		Promise.all([app.loadModelPaperAirplane(), app.loadTexture()]).
+		Promise.all([app.loadModelPaperAirplane(), app.loadTexture(), app.loadFont()]).
 		then(() => {
 			// 初期化
 			app.init();
@@ -67,11 +164,11 @@ import Layout from '../layouts/Layout.astro';
 				// 描画する空間のニアクリップ面（最近面）
 				near: 0.1,
 				// 描画する空間のファークリップ面（最遠面）
-				far: 20.0,
+				far: 40.0,
 				// カメラの位置
-				x: 0.0,
-				y: 2.0,
-				z: 10.0,
+				x: -8.0,
+				y: 10.0,
+				z: 8.0,
 				// カメラの中止点
 				lookAt: new THREE.Vector3(0.0, 0.0, 0.0),
 			};
@@ -82,7 +179,7 @@ import Layout from '../layouts/Layout.astro';
 		static get RENDERER_PARAM() {
 			return {
 				// レンダラーが背景をリセットする際に使われる背景色
-				clearColor: 0xffffff,
+				clearColor: 0xefefef,
 				// レンダラーが描画する領域の横幅
 				width: window.innerWidth,
 				// レンダラーが描画する領域の縦幅
@@ -96,9 +193,9 @@ import Layout from '../layouts/Layout.astro';
 			return {
 				color: 0xffffff, // 光の色
 				intensity: 1.0,  // 光の強度
-				x: 1.0,          // 光の向きを表すベクトルの X 要素
-				y: 1.0,          // 光の向きを表すベクトルの Y 要素
-				z: 1.0           // 光の向きを表すベクトルの Z 要素
+				x: 50.0,          // 光の向きを表すベクトルの X 要素
+				y: 50.0,          // 光の向きを表すベクトルの Y 要素
+				z: 50.0           // 光の向きを表すベクトルの Z 要素
 			};
 		}
 		/**
@@ -109,6 +206,24 @@ import Layout from '../layouts/Layout.astro';
 				color: 0xffffff, // 光の色
 				intensity: 0.5,  // 光の強度
 			};
+		}
+		/**
+		 * 影に関する定数の定義 @@@
+		 */
+		static get SHADOW_PARAM() {
+			return {
+				spaceSize: 10.0, // 影を生成するためのカメラの空間の広さ
+				mapSize: 4096,     // 影を生成するためのバッファのサイズ
+			}
+			// - 影を生成するためのバッファとは ---------------------------------------
+			// 影を生成する原理は、ものすごく簡単に言えば「距離を格納したバッファの中身
+			// と実際の値を比較して、遮蔽物があるか調べる」ということを行っています。
+			// このとき、バッファが高解像度であれば、当然ながら影かそうでないかがより高
+			// 精細にチェックされることになるので、きれいな影が出ます。
+			// 一方で、バッファを高解像度にするということはそれだけ負荷が高くなります。
+			// mapSize は大きすぎる数値を指定すると一気にパフォーマンスが下がるので注意
+			// が必要です。
+			// ------------------------------------------------------------------------
 		}
 		/**
 		 * マテリアル定義のための定数
@@ -124,10 +239,12 @@ import Layout from '../layouts/Layout.astro';
 		static get PAPERAIRPLANE_DISTANCE(){
 			return 3.0;
 		}
+
 		// 紙ヒコーキのスピード
 		static get PAPERAIRPLANE_SPEED(){
 			return 0.05;
 		}
+
 		// イージング関数
 		static easeInSine(x) {
   		return 1 - Math.cos((x * Math.PI) / 2);
@@ -143,6 +260,8 @@ import Layout from '../layouts/Layout.astro';
 		ambientLight: any;
 		material: any;
 
+		font: any;
+		fontArray: any;
 		paperAirplane: any;
 		paperAirplaneGroup: any;
 		world: any;
@@ -157,13 +276,10 @@ import Layout from '../layouts/Layout.astro';
 		axis: any;
 		axisGroup: any;
 		paperAirplaneAxis: any;
-		t: any;
 		tGroup: any;
-		theta: any;
 		thetaGroup: any;
 		before: any;
 		beforeGroup: any;
-		qFlg: any;
 
 		controls: any;
 		axesHelper: any;
@@ -183,12 +299,14 @@ import Layout from '../layouts/Layout.astro';
 			this.ambientLight;     // アンビエントライト
 			this.material;         // マテリアル
 
+			this.font;
+			this.fontArray;
 			this.paperAirplane;
 			this.paperAirplaneGroup;
 			this.world;
 			this.worldMapTexture;
-			this.startPoint;
 			this.targetPoint;
+			this.startPoint;
 			this.startVector;
 			this.frame;
 			this.nowFrame;
@@ -197,13 +315,10 @@ import Layout from '../layouts/Layout.astro';
 			this.axis;
 			this.axisGroup;
 			this.paperAirplaneAxis;
-			this.t;
 			this.tGroup;
-			this.theta;
 			this.thetaGroup;
 			this.before;
 			this.beforeGroup;
-			this.qFlg;
 
 			this.controls;         // オービットコントロール
 			this.axesHelper;       // 軸ヘルパー
@@ -228,9 +343,9 @@ import Layout from '../layouts/Layout.astro';
 				let url;
 
 				if(location.hostname == '127.0.0.1') {
-					url = '../../public/world_map.jpg';
+					url = '../../public/003-files/world_map.jpg';
 				} else {
-					url = '../world_map.jpg';
+					url = '../003-files/world_map.jpg';
 				}
 
 				const loader = new THREE.TextureLoader();
@@ -250,15 +365,37 @@ import Layout from '../layouts/Layout.astro';
 				let url;
 
 				if(location.hostname == '127.0.0.1') {
-					url = '../../public/paper_airplane.glb';
+					url = '../../public/003-files/paper_airplane.glb';
 				} else {
-					url = '../paper_airplane.glb';
+					url = '../003-files/paper_airplane.glb';
 				}
 
 				const loader = new GLTFLoader();
 
 				loader.load(url, (glb) => {
 					this.paperAirplane = glb.scene;
+
+					// Promise を解決
+					resolve();
+				});
+			});
+		}
+
+		// font load
+		loadFont() {
+			return new Promise((resolve) => {
+				let url;
+
+				if(location.hostname == '127.0.0.1') {
+					url = '../../public/003-files/Montserrat_Bold.json';
+				} else {
+					url = '../003-files/Montserrat_Bold.json';
+				}
+
+				const loader = new FontLoader();
+
+				loader.load(url, (font) => {
+					this.font = font;
 
 					// Promise を解決
 					resolve();
@@ -278,6 +415,7 @@ import Layout from '../layouts/Layout.astro';
 			this.renderer.setSize(App3.RENDERER_PARAM.width, App3.RENDERER_PARAM.height);
 			const wrapper = document.querySelector('#webgl');
 			wrapper.appendChild(this.renderer.domElement);
+			this.renderer.shadowMap.enabled = true;
 
 			// シーン
 			this.scene = new THREE.Scene();
@@ -308,6 +446,15 @@ import Layout from '../layouts/Layout.astro';
 				App3.DIRECTIONAL_LIGHT_PARAM.z,
 			);
 			this.scene.add(this.directionalLight);
+			this.directionalLight.castShadow = true;
+			// 影用のカメラ（平行投影のカメラ）は必要に応じて範囲を広げる @@@
+			this.directionalLight.shadow.camera.top    =  App3.SHADOW_PARAM.spaceSize;
+			this.directionalLight.shadow.camera.bottom = -App3.SHADOW_PARAM.spaceSize;
+			this.directionalLight.shadow.camera.left   = -App3.SHADOW_PARAM.spaceSize;
+			this.directionalLight.shadow.camera.right  =  App3.SHADOW_PARAM.spaceSize;
+			// 影用のバッファのサイズは変更することもできる @@@
+			this.directionalLight.shadow.mapSize.width  = App3.SHADOW_PARAM.mapSize;
+			this.directionalLight.shadow.mapSize.height = App3.SHADOW_PARAM.mapSize;
 
 			// アンビエントライト（環境光）
 			this.ambientLight = new THREE.AmbientLight(
@@ -319,21 +466,71 @@ import Layout from '../layouts/Layout.astro';
 			// マテリアル
 			this.material = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
 
-			// 座標
-			this.targetPoint;
-
 			// 地球
-			let worldMaterial = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
-			worldMaterial.map = this.worldMapTexture;
-			this.world = new THREE.Mesh(new THREE.SphereGeometry(3, 32, 32), worldMaterial);
-			/* this.scene.add(this.world); */
+			/* let worldMaterial = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
+			worldMaterial.map = this.worldMapTexture; */
+			let worldMaterial = new THREE.MeshPhongMaterial({
+				color: 0xFFFFFF,
+				shininess: 0,
+			});
+			this.world = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32), worldMaterial);
+			this.world.receiveShadow = true;
+			this.scene.add(this.world);
+			console.log(this.world)
 
 			// モデル
 			this.paperAirplaneGroup = new THREE.Group();
 			this.paperAirplane.position.set(0, 3.0, 0);
 			this.paperAirplane.scale.set(0.25, 0.25, 0.25);
 			this.paperAirplaneGroup.add(this.paperAirplane);
+
+						// glTF の階層構造をたどり、Mesh が出てきたら影を落とす（cast）設定を行う @@@
+						this.paperAirplane.traverse((object) => {
+				if (object.isMesh === true || object.isSkinnedMesh === true) {
+					object.castShadow = true;
+				}
+    	});
+			this.paperAirplane.castShadow = true;
+			this.paperAirplane.children[0].castShadow = true;
+			this.paperAirplaneGroup.castShadow = true;
+
 			this.scene.add(this.paperAirplaneGroup);
+			console.log(this.paperAirplane)
+
+			// フォント
+			this.fontArray = [];
+
+			let fontArray = [
+				{font: '0°', x: -5, y: 0, z: 0},
+				{font: '90°', x: 0, y: 5, z: 0},
+				{font: '-90°', x: 0, y: -5, z: 0},
+				{font: '90°', x: 0, y: 0, z: 5},
+				{font: '-90°', x: 0, y: 0, z: -5},
+				{font: '-180° 180°', x: 5, y: 0, z: 0},
+			]
+
+			let fontMaterial = new THREE.MeshPhongMaterial({
+				color: 0x333333,
+				shininess: 0,
+			});
+			
+			fontArray.forEach((element) => {
+				const textGeo = new TextGeometry(element.font, {
+					font: this.font,
+					size: 0.4,
+					height: 0.05,
+					curveSegments: 6,
+				});
+
+				const fontMesh = new THREE.Mesh(textGeo, fontMaterial);
+				fontMesh.position.x = element.x;
+				fontMesh.position.y = element.y;
+				fontMesh.position.z = element.z;
+				fontMesh.lookAt(new THREE.Vector3(this.camera.position.x, this.camera.position.y, this.camera.position.z));
+				console.log(this.camera.position)
+				this.fontArray.push(fontMesh)
+				this.scene.add(fontMesh);
+			})
 
 			// コントロール
 			this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -342,12 +539,33 @@ import Layout from '../layouts/Layout.astro';
 			this.time = new THREE.Clock();
 
 			// ヘルパー
-			const axesBarLength = 5.0;
+/* 			const axesBarLength = 5.0;
 			this.axesHelper = new THREE.AxesHelper(axesBarLength);
-			this.scene.add(this.axesHelper);
+			this.scene.add(this.axesHelper); */
 
-			// 事前処理
-			this.startPoint = new THREE.Vector3(0.0, 3.0, 0.0);
+			// メイン処理
+			// 緯度・経度を算出する関数を定義
+			const translateGeoCoords = (latitude, longitude, radius) => {
+				// 仰角
+				const phi = latitude * Math.PI / 180;
+				// 方位角
+				/* const theta = (longitude - 180) * Math.PI / 180; */ // 入力が360°ver
+				// 同じ座標である -180° と 180°の入力が連続した場合、符号逆転を避ける為、片方に合わせる。
+				if(longitude == -180){
+					longitude = longitude * -1;
+				}
+				const theta = longitude * Math.PI / 180; // これは入力が-180°~180°ver
+
+				const x = -1 * radius * Math.cos(phi) * Math.cos(theta);
+				const y = radius * Math.sin(phi);
+				const z = radius * Math.cos(phi) * Math.sin(theta);
+
+				return new THREE.Vector3(x, y, z);
+			};
+
+			// 初期化
+			this.startPoint = translateGeoCoords(90, 0, 3);
+			this.targetPoint;
 			this.frame = 100;
 			this.nowFrame = 0;
 			this.before = 0;
@@ -356,87 +574,134 @@ import Layout from '../layouts/Layout.astro';
 			const vec0 = new THREE.Vector3(0.0, 0.0, 0.0);
 			// モデルの向きの初期ベクトル
 			this.startVector = new THREE.Vector3(0.0, 0.0, 1.0).normalize();
-			// モデルの軸の初期ベクトル
-			this.paperAirplaneAxis;
-
-			// クリックイベント
+			// inputタグの親を格納
 			const button = document.getElementById("send");
 
+			// クリックイベント
 			button.addEventListener('click', () => {
+				// クリックフラグを有効化
 				this.isClick = true;
 
 				// 入力された緯度・経度を取得
 				const latitude = document.getElementById("latitude").value;
 				const longitude = document.getElementById("longitude").value;
 
-				// 緯度・経度を算出する関数を定義
-				const translateGeoCoords = (latitude, longitude, radius) => {
-					// 仰角
-					const phi = latitude * Math.PI / 180;
-					// 方位角
-					const theta = (longitude - 180) * Math.PI / 180;
-
-					const x = -1 * radius * Math.cos(phi) * Math.cos(theta);
-					const y = radius * Math.sin(phi);
-					const z = -1 * radius * Math.cos(phi) * Math.sin(theta);
-
-					return new THREE.Vector3(x, y, z);
-				};
-
 				/* クリック時の緯度と経度から3次元座標を計算し格納 引数（緯度, 経度, 半径） */
 				this.targetPoint = translateGeoCoords(latitude, longitude, 3);
-				console.log(this.targetPoint)
-				/* グループの制御 */
-				// 原点→紙ヒコーキのベクトル
-				const vec1 = new THREE.Vector3().subVectors(new THREE.Vector3(this.startPoint.x, this.startPoint.y, this.startPoint.z), vec0).normalize();
-				// 原点→目的座標のベクトル
-				const vec2 = new THREE.Vector3().subVectors(this.targetPoint, vec0).normalize();
-				// 2つのベクトルの直交ベクトルを求める
-				this.axisGroup = new THREE.Vector3().crossVectors(vec1, vec2);
-				// 単位化
-				this.axisGroup.normalize();
-				// 内積でコサインを算出
-				const cosGroup = vec2.dot(vec1);
-				//　コサインをラジアンに変換（総回転量）
-				const radGroup = Math.acos(cosGroup);
-				// ラジアン → 度 に変換
-				this.thetaGroup = radGroup * 180 / Math.PI;
-				// 1フレームの回転量を算出
-				this.tGroup = this.thetaGroup / this.frame;
 
-				// 2点のクォータニオンを算出し、回転量をから同一線上のベクトルか？判定する。
-				// three.jsの関数.setFromAxisAngle()は、対角が180°でも何故か0ベクトルにならない為、判定から外してる。
-				// ただし限りなく対角上に近づくだけなので、試行回数が多いと段々ズレが生じる可能性がある。
-				const twoPointsW = new THREE.Quaternion().setFromAxisAngle(this.axisGroup, radGroup);
-				if(twoPointsW._w == 1){
-					this.qFlg = false;
+				console.log(this.targetPoint, this.startPoint)
+
+				// 目標座標と現在座標が同じか？判定する
+				//　※ここの処理は不完全。機首方向のみを変えた同座標上の場合、1以下 Number.EPSILON以上の数値が算出されるケースがあり、厳密計算よりはインタラクション側で制限かけた方が良さそう。
+				if(this.targetPoint.x == this.startPoint.x && this.targetPoint.y == this.startPoint.y && this.targetPoint.z == this.startPoint.z){
+					// 同じ座標の場合
+					// クリックフラグをオフ
+					this.isClick = false;
 				} else {
-					this.qFlg = true;
+					// 異なる座標の場合
+					/* グループの制御 */
+					// 原点→紙ヒコーキのベクトル
+					const vec1 = new THREE.Vector3().subVectors(new THREE.Vector3(this.startPoint.x, this.startPoint.y, this.startPoint.z), vec0).normalize();
+					// 原点→目的座標のベクトル
+					const vec2 = new THREE.Vector3().subVectors(this.targetPoint, vec0).normalize();
+					// 2つのベクトルの直交ベクトルを求める
+					// ※1 この段階では完全に0にならないパターンがあり、normalize（平方根）とると1になる時があるので、まだnormalize()しない。
+					this.axisGroup = new THREE.Vector3().crossVectors(vec1, vec2);
+
+					// x, y, z全てが限りなく0でない場合 → 同一線上のベクトルで直交ベクトルが0の場合
+					if(Math.abs(this.axisGroup.x) < Number.EPSILON && Math.abs(this.axisGroup.y) < Number.EPSILON && Math.abs(this.axisGroup.z) < Number.EPSILON){
+						console.log('group cross 0')
+						// 2つのベクトルの直交ベクトルを求める
+						this.axisGroup = new THREE.Vector3().crossVectors(vec1, this.startVector).normalize();
+						// 総回転量を180°にする
+						const radGroup =  Math.PI;
+						// ラジアン → 度 に変換
+						this.thetaGroup = radGroup * 180 / Math.PI;
+						// 1フレームの回転量を算出
+						this.tGroup = this.thetaGroup / this.frame;
+
+						/* 紙ヒコーキの制御 */
+						// 移動後の機首のベクトルを求める
+						const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec2).normalize();
+						this.startVector = vec4;
+						/* 紙ヒコーキの制御 end */
+						
+						/* 紙ヒコーキの制御 */
+						// 目標座標へ向かって、平行なベクトルを求める
+						//const vec3 = new THREE.Vector3().crossVectors(this.axisGroup, vec1).normalize();
+						// 移動後の機首のベクトルを求める
+						//const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec2).normalize();
+						// 飛行機の回転軸を求める
+						//this.paperAirplaneAxis = new THREE.Vector3().crossVectors(this.startVector, vec3).normalize();
+						// 内積でコサインを算出
+						//const cos = vec3.dot(this.startVector);
+						// コサインをラジアンに変換
+						//const rad = Math.acos(cos);
+						// 今回動かしたい分の（差分の）クォータニオンを算出
+						//this.q = new THREE.Quaternion().setFromAxisAngle(this.paperAirplaneAxis, rad);
+						// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
+						//this.paperAirplaneGroup.quaternion.premultiply(this.q);
+						// 回転後に機首のベクトルを更新
+						//this.startVector = vec4;
+						/* 紙ヒコーキの制御 end */
+
+					} else {
+						console.log('group cross not 0')
+						// ※1 ここで単位化
+						this.axisGroup.normalize();
+						// 内積でコサインを算出
+						const cosGroup = vec2.dot(vec1);
+						//　コサインをラジアンに変換（総回転量）
+						const radGroup = Math.acos(cosGroup);
+						// ラジアン → 度 に変換
+						this.thetaGroup = radGroup * 180 / Math.PI;
+						// 1フレームの回転量を算出
+						this.tGroup = this.thetaGroup / this.frame;
+
+						/* 紙ヒコーキの制御 */
+						// 目標座標へ向かって、平行なベクトルを求める
+						const vec3 = new THREE.Vector3().crossVectors(this.axisGroup, vec1).normalize();
+						// 移動後の機首のベクトルを求める
+						const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec2).normalize();
+						// 飛行機の回転軸を求める
+						this.paperAirplaneAxis = new THREE.Vector3().crossVectors(this.startVector, vec3)
+						// 飛行機の回転軸が0ベクトルの処理
+						if(Math.abs(this.paperAirplaneAxis.x) < Number.EPSILON && Math.abs(this.paperAirplaneAxis.y) < Number.EPSILON && Math.abs(this.paperAirplaneAxis.z) < Number.EPSILON){
+							console.log('airplane cross 0')
+							// 目標座標へ向かって伸びる平行なベクトルと機首のベクトルとの差を求める
+							const vecDifference = vec3.sub(this.startVector);
+							// 順方向の場合（全ての差が0になる場合）
+							if(Math.abs(vecDifference.x) < Number.EPSILON && Math.abs(vecDifference.y) < Number.EPSILON && Math.abs(vecDifference.z) < Number.EPSILON){
+								// 回転後に機首のベクトルを更新
+								this.startVector = vec4;
+							} else {
+							console.log('airplane cross not 0')
+							// 総回転量を180°にする
+							const rad = Math.PI;
+							// 今回動かしたい分の（差分の）クォータニオンを算出
+							this.q = new THREE.Quaternion().setFromAxisAngle(vec1, rad);
+							// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
+							this.paperAirplaneGroup.quaternion.premultiply(this.q);
+							// 回転後に機首のベクトルを更新
+							this.startVector = vec4;
+							}
+						} else {
+							this.paperAirplaneAxis.normalize();
+							// 内積でコサインを算出
+							const cos = vec3.dot(this.startVector);
+							// コサインをラジアンに変換
+							const rad = Math.acos(cos);
+							// 今回動かしたい分の（差分の）クォータニオンを算出
+							this.q = new THREE.Quaternion().setFromAxisAngle(this.paperAirplaneAxis, rad);
+							// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
+							this.paperAirplaneGroup.quaternion.premultiply(this.q);
+							// 回転後に機首のベクトルを更新
+							this.startVector = vec4;
+						}
+						/* 紙ヒコーキの制御 end */
+					}
+					/* グループの制御 end */
 				}
-				/* console.log(twoPointsW._w) */
-
-
-				/* 紙ヒコーキの制御*/
-				// 移動後の機首のベクトルを求める
-				const vec4 = new THREE.Vector3().crossVectors(this.axisGroup, vec2);
-				// 単位化
-				vec4.normalize();
-				// 飛行機の回転軸を求める
-				this.paperAirplaneAxis = new THREE.Vector3().crossVectors(this.startVector, this.axisGroup);
-				// 単位化
-				this.paperAirplaneAxis.normalize();
-				// 内積でコサインを算出
-				const cos = vec2.dot(this.startVector);
-				// コサインをラジアンに変換
-				const rad = Math.acos(cos);
-				// 今回動かしたい分の（差分の）クォータニオンを算出
-				this.q = new THREE.Quaternion().setFromAxisAngle(this.paperAirplaneAxis, rad);
-				// 現在のクォータニオンにかけて動かす（クォータニオンはかけると加算される）
-				this.paperAirplaneGroup.quaternion.premultiply(this.q);
-
-				this.startVector = vec4;
-				this.paperAirplaneAxis = vec2;
-
 			});
 		}
 
@@ -450,9 +715,12 @@ import Layout from '../layouts/Layout.astro';
 			// コントロールを更新
 			this.controls.update();
 
+			this.fontArray.forEach(element => {
+				element.lookAt(new THREE.Vector3(this.camera.position.x, this.camera.position.y, this.camera.position.z));
+			});
 
-			if(this.nowFrame < 100 && this.isClick && this.qFlg){
-				console.log('down')
+
+			if(this.nowFrame < this.frame && this.isClick){
 				// 現在のフレームに対して、0.0 ~ 1.0まででどれくらい割合を持っているか算出
 				const ratioGroup = (this.tGroup * this.nowFrame) / this.thetaGroup;
 				// イージングをつける
@@ -473,17 +741,15 @@ import Layout from '../layouts/Layout.astro';
 				this.nowFrame += 1;
 			}
 
-			// 最終フレームの場合初期化
+			// 最終フレームの場合初期化 + 現在座標を更新
 			if(this.nowFrame == 100){
 				this.nowFrame = 0;
 				this.before = 0;
 				this.beforeGroup = 0;
 				this.isClick = false;
-				/* console.log(this.targetPoint) */
 				this.startPoint.x = this.targetPoint.x;
 				this.startPoint.y = this.targetPoint.y;
 				this.startPoint.z = this.targetPoint.z;
-				/* console.log(this.startPoint) */
 			}
 
 			// レンダラーで描画
