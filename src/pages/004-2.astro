@@ -3,9 +3,7 @@ import Layout from '../layouts/Layout.astro';
 ---
 
 <Layout title="004">
-	<div id="webgl">
-
-	</div>
+	<div id="webgl"></div>
 
 </Layout>
 
@@ -140,6 +138,17 @@ import Layout from '../layouts/Layout.astro';
 		heightInit: any;
 		planeAspectY: any;
 
+		down: any;
+		click: any;
+		preventClick: any;
+		downStartPos: any;
+		currentPos: any;
+		lastPos: any;
+		deltaPos: any;
+		xScroll: any;
+		yScroll: any;
+		velocity: any;
+
 		/**
 		 * コンストラクタ
 		 * @constructor
@@ -165,13 +174,24 @@ import Layout from '../layouts/Layout.astro';
 			this.widthInit;
 			this.heightInit;
 			this.planeAspectY;
-			this.raycaster
+			this.raycaster;
+
+			this.down;
+			this.click;
+			this.preventClick;
+			this.downStartPos;
+			this.currentPos;
+			this.lastPos;
+			this.deltaPos;
+			this.xScroll;
+			this.yScroll;
+			this.velocity;
 
 			// Raycaster のインスタンスを生成する @@@
 			this.raycaster = new THREE.Raycaster();
 			console.log(this.raycaster)
 			// マウスのクリックイベントの定義 @@@
-			window.addEventListener('click', (mouseEvent) => {
+			/* window.addEventListener('click', (mouseEvent) => {
 				// スクリーン空間の座標系をレイキャスター用に正規化する（-1.0 ~ 1.0 の範囲）
 				const x = mouseEvent.clientX / window.innerWidth * 2.0 - 1.0;
 				const y = mouseEvent.clientY / window.innerHeight * 2.0 - 1.0;
@@ -228,7 +248,7 @@ import Layout from '../layouts/Layout.astro';
 				// でループして判定していますので、シーン内のメッシュの量やポリゴンの量が
 				// 増えると、それに比例して Raycaster のコストも増加します。
 				// ----------------------------------------------------------------------
-			}, false);
+			}, false); */
 
 			// 再帰呼び出しのための this 固定
 			this.render = this.render.bind(this);
@@ -265,9 +285,9 @@ import Layout from '../layouts/Layout.astro';
 				let url;
 
 				if(location.hostname == '127.0.0.1') {
-					url = '../../public/world_map.jpg';
+					url = '../../public/004-2-files/world_map.jpg';
 				} else {
-					url = '../world_map.jpg';
+					url = '../004-2-files/world_map.jpg';
 				}
 
 				const loader = new THREE.TextureLoader();
@@ -337,7 +357,7 @@ import Layout from '../layouts/Layout.astro';
 			this.material = new THREE.MeshStandardMaterial(App3.MATERIAL_PARAM);
 
 			// コントロール
-			this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+			/* this.controls = new OrbitControls(this.camera, this.renderer.domElement); */
 
 			// タイマー
 			this.time = new THREE.Clock();
@@ -347,9 +367,59 @@ import Layout from '../layouts/Layout.astro';
 			this.axesHelper = new THREE.AxesHelper(axesBarLength);
 			this.scene.add(this.axesHelper);
 
+			// マウスイベント
+			this.down = false
+			this.click = false
+			this.preventClick = false
+			this.downStartPos = { x: 0, y: 0 }
+			this.currentPos = { x: 0, y: 0 }
+			this.lastPos = { x: 0, y: 0 }
+			this.deltaPos = { x: 0, y: 0 }
+			const target = document.body;
+
+			target.addEventListener("pointerdown", e => {
+				this.currentPos.x = e.clientX;
+				this.currentPos.y = e.clientY;
+				this.lastPos.x = e.clientX;
+				this.lastPos.y = e.clientY;
+				if (e.button === 0) {
+					this.down = true;
+					this.click = false;
+					this.preventClick = false;
+				}
+				// Object.assign() 第一引数に第二引数を上書き（ないものは追加して）した第一引数を返す。
+				Object.assign(this.downStartPos, this.currentPos);
+			})
+
+			target.addEventListener("pointermove", e => {
+				this.currentPos.x = e.clientX;
+				this.currentPos.y = e.clientY;
+
+				const dist = Math.sqrt((this.currentPos.x - this.downStartPos.x) ** 2 + (this.currentPos.y - this.downStartPos.y) ** 2);
+
+				if (dist > 3) this.preventClick = true;
+			})
+
+			target.addEventListener("pointerup", e => {
+				this.currentPos.x = e.clientX;
+				this.currentPos.y = e.clientY;
+				if (e.button === 0) {
+					this.down = false;
+					if (!this.preventClick) this.click = true;
+				}
+			})
+
+			// 移動処理
+			this.xScroll = 0;
+			this.yScroll = 0;
+			this.velocity = {x: 0, y: 0};
+
+
+
+
 			// 処理
 			// 画像数
-			const count = 16;
+			const count = 30;
 			// 列数
 			const column = 4;
 			// 行数
@@ -362,32 +432,34 @@ import Layout from '../layouts/Layout.astro';
 			this.widthInit = window.innerWidth;
 			this.heightInit = window.innerHeight;
 			// 横幅の大きさ
-			const planeWidth = (App3.CAMERA_SCALE * (window.innerWidth / window.innerHeight)) * 2 / column;
+			const planeWidth = App3.CAMERA_SCALE * 2 / column;
 			// 縦幅の大きさ
-			const planeHeight = App3.CAMERA_SCALE * 2 / line;
+			const planeHeight = 2;
 			// ジオメトリの大きさ定義
 			const planeGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
 			// マテリアルを定義
 			const planeMaterial = new THREE.MeshBasicMaterial({map: this.texture });
 			/* const planeMaterial = new THREE.MeshBasicMaterial({color: '#000' }); */
 			// グループにplaneを追加
-/* 			for(let a = 0; a < line; a++){
+			for(let a = 0; a < line; a++){
 				for(let b = 0; b < column; b++){
 					const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 
 					// planeの半分の大きさ + 行列を半分に分け、-1した時の倍率をplane一枚分の大きさ + 今のカラム分の大きさ
-					plane.position.x = (-1 * (planeWidth / 2 + (planeWidth * (column / 2 - 1)))) + (planeWidth * (b));
-					plane.position.y = ((planeHeight / 2) + (planeHeight * (line / 2 - 1))) - (planeHeight * a);
+/* 					plane.position.x = (-1 * (planeWidth / 2 + (planeWidth * (column / 2 - 1)))) + (planeWidth * (b));
+					plane.position.y = ((planeHeight / 2) + (planeHeight * (line / 2 - 1))) - (planeHeight * a); */
+					plane.position.x = (b * App3.CAMERA_SCALE) - App3.CAMERA_SCALE;
+					plane.position.y = 5;
 				
 					// グループにplaneを追加
 					this.planeGroup.add(plane);
 					// 配列にplane情報を追加（ray判定用）
 					this.planeArray.push(plane);
 				}
-			} */
+			}
 
-			const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), planeMaterial);
-			this.planeGroup.add(plane);
+			/* const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), planeMaterial);
+			this.planeGroup.add(plane); */
 
 			// シーンにグループを追加
 			this.scene.add(this.planeGroup);
@@ -401,7 +473,40 @@ import Layout from '../layouts/Layout.astro';
 			requestAnimationFrame(this.render);
 
 			// コントロールを更新
-			this.controls.update();
+			/* this.controls.update(); */
+
+			this.deltaPos.x = this.currentPos.x - this.lastPos.x
+			this.deltaPos.y = this.currentPos.y - this.lastPos.y
+			Object.assign(this.lastPos, this.currentPos)
+
+			if(this.down){
+				this.velocity.x = this.deltaPos.x * 0.08;
+				this.velocity.y = this.deltaPos.y * 0.08 * -1.0;
+
+				this.xScroll += this.velocity.x;
+				this.yScroll += this.velocity.y;
+			} else {
+				if(Math.abs(this.xScroll) > Number.EPSILON){
+					this.xScroll -= this.xScroll * 0.1;
+				} else {
+					this.xScroll = 0;
+				}
+				if(Math.abs(this.yScroll) > Number.EPSILON){
+					this.yScroll -= this.yScroll * 0.1;
+				} else {
+					this.yScroll = 0;
+				}
+			}
+			this.planeGroup.position.x += 0 + this.xScroll * 0.0125;
+			this.planeGroup.position.y += 0 + this.yScroll * 0.0125;
+			this.click = false
+
+			const planePosition = this.planeGroup.getWorldPosition(new THREE.Vector3());
+			// .project()はthree.jsのcameraメソッドの一つ。object3dのpositionを与えると、ワールド空間内でどの位置か？正規化して返す（-1~1の範囲）
+			const projection = planePosition.project(this.camera);
+			const sx = (window.innerWidth / 2.0) * (+projection.x + 1.0);
+			const sy = (window.innerHeight / 2.0) * (-projection.y + 1.0);
+			console.log(sx, sy)
 
 
 			// レンダラーで描画
