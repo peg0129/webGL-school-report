@@ -56,19 +56,18 @@ import Layout from '../layouts/Layout.astro';
 		static get CAMERA_PARAM() {
 			// 平行投影（正射影）変換用のパラメータを計算する
 			const aspect = window.innerWidth / window.innerHeight; // アスペクト比
-			const scale = App3.CAMERA_SCALE;                       // 切り取る空間の広さ（スケール）
-			const horizontal = scale;                     // 横方向のスケール ※1 (0, 0)から上下にこの値をとる positionやscaleが画面に写る最大値
-			const vertiacal = scale;                               // 縦方向のスケール ※1 (0, 0)から上下にこの値をとる positionやscaleが画面に写る最大値
+			const horizontal = window.innerWidth / 2;              // 横方向のスケール ※1 (0, 0)から上下にこの値をとる positionやscaleが画面に写る最大値
+			const vertiacal = window.innerHeight / 2;              // 縦方向のスケール ※1 (0, 0)から上下にこの値をとる positionやscaleが画面に写る最大値
 			return {
 				left: -horizontal,  // 切り取る空間の左端までの距離
 				right: horizontal,  // 切り取る空間の右端までの距離
 				top: vertiacal,     // 切り取る空間の上端までの距離
 				bottom: -vertiacal, // 切り取る空間の下端までの距離
 				near: 0.1,
-				far: 50.0,
+				far: 200.0,
 				x: 0.0, // 正面
 				y: 0.0, // 正面
-				z: 5.0,
+				z: 200.0,
 				lookAt: new THREE.Vector3(0.0, 0.0, 0.0),
 			};
 		}
@@ -92,9 +91,9 @@ import Layout from '../layouts/Layout.astro';
 			return {
 				color: 0xffffff, // 光の色
 				intensity: 1.0,  // 光の強度
-				x: 1.0,          // 光の向きを表すベクトルの X 要素
-				y: 1.0,          // 光の向きを表すベクトルの Y 要素
-				z: 1.0           // 光の向きを表すベクトルの Z 要素
+				x: 30.0,          // 光の向きを表すベクトルの X 要素
+				y: 30.0,          // 光の向きを表すベクトルの Y 要素
+				z: 500.0           // 光の向きを表すベクトルの Z 要素
 			};
 		}
 		/**
@@ -105,6 +104,15 @@ import Layout from '../layouts/Layout.astro';
 				color: 0xffffff, // 光の色
 				intensity: 0.5,  // 光の強度
 			};
+		}
+		/**
+	  * 影に関する定数の定義 @@@
+	  */
+		static get SHADOW_PARAM() {
+			return {
+				spaceSize: window.innerWidth, // 影を生成するためのカメラの空間の広さ
+				mapSize: 4096,     // 影を生成するためのバッファのサイズ
+			}
 		}
 		/**
 		 * マテリアル定義のための定数
@@ -134,9 +142,9 @@ import Layout from '../layouts/Layout.astro';
 		planeArray: any;
 		backupScale: any;
 		texture: any;
-		widthInit: any;
-		heightInit: any;
-		planeAspectY: any;
+		planeWidth: any;
+		planeHeight: any;
+		planeTotalHeight: any;
 
 		down: any;
 		click: any;
@@ -166,15 +174,16 @@ import Layout from '../layouts/Layout.astro';
 			this.isClick = false; // キーの押下状態を保持するフラグ
 			this.time; //経過時間
 
+			this.raycaster;
 			this.plane;
 			this.planeGroup;
 			this.planeArray;
 			this.backupScale;
 			this.texture;
-			this.widthInit;
-			this.heightInit;
-			this.planeAspectY;
-			this.raycaster;
+			this.planeWidth;
+			this.planeHeight;
+			this.planeTotalHeight;
+
 
 			this.down;
 			this.click;
@@ -189,92 +198,46 @@ import Layout from '../layouts/Layout.astro';
 
 			// Raycaster のインスタンスを生成する @@@
 			this.raycaster = new THREE.Raycaster();
-			console.log(this.raycaster)
 			// マウスのクリックイベントの定義 @@@
-			/* window.addEventListener('click', (mouseEvent) => {
-				// スクリーン空間の座標系をレイキャスター用に正規化する（-1.0 ~ 1.0 の範囲）
-				const x = mouseEvent.clientX / window.innerWidth * 2.0 - 1.0;
-				const y = mouseEvent.clientY / window.innerHeight * 2.0 - 1.0;
-				// スクリーン空間は上下が反転している点に注意（Y だけ符号を反転させる）
-				const v = new THREE.Vector2(x, -y);
-				// レイキャスターに正規化済みマウス座標とカメラを指定する
-				this.raycaster.setFromCamera(v, this.camera);
-				// scene に含まれるすべてのオブジェクトを対象にレイキャストする
-				// intersectObjects（配列 Array）
-				const intersects = this.raycaster.intersectObjects(this.planeArray);
-
-				// - intersectObjects でレイキャストした結果は配列 ----------------------
-				// 名前が似ているので紛らわしいのですが Raycaster には intersectObject と
-				// intersectObjects があります。複数形の s がついているかどうかの違いがあ
-				// り、複数形の場合は引数と戻り値のいずれも配列になります。
-				// この配列の長さが 0 である場合はカーソル位置に向かって放ったレイは、どの
-				// オブジェクトとも交差しなかったと判断できます。また、複数のオブジェクト
-				// とレイが交差した場合も、three.js 側で並び替えてくれるので 0 番目の要素
-				// を参照すれば必ず見た目上の最も手前にあるオブジェクトを参照できます。
-				// 戻り値の中身は object というプロパティを経由することで対象の Mesh など
-				// のオブジェクトを参照できる他、交点の座標などもわかります。
-				// ----------------------------------------------------------------------
-				if (intersects.length > 0) {
-					// カメラに近いものからキャストされて配列に格納されるので、配列の0番だけを変えることで、重なってても1個だけマテリアルを変更できてる。
-					console.log('hit');
-					console.log(intersects[0].object.position.x);
-
-					// positon変更
-					gsap.to(intersects[0].object.position, {
-						ease: "power3.Out",
-						delay: 0.4,
-						x: 0,
-						y: 0,
-						z: 1, 
-					});
-
-					this.backupScale = intersects[0].object.scale;
-
-					//scale変更
-					gsap.to(intersects[0].object.scale, {
-						ease: "power3.Out",
-						delay: 0.4,
-						x: 4,
-						y: 4, 
-					});
+			window.addEventListener('click', (mouseEvent) => {
+				// pointerdown → pointermove → pointerup → clickの順
+				if(this.preventClick == false){
+					// スクリーン空間の座標系をレイキャスター用に正規化する（-1.0 ~ 1.0 の範囲）
+					const x = mouseEvent.clientX / window.innerWidth * 2.0 - 1.0;
+					const y = mouseEvent.clientY / window.innerHeight * 2.0 - 1.0;
+					// スクリーン空間は上下が反転している点に注意（Y だけ符号を反転させる）
+					const v = new THREE.Vector2(x, -y);
+					// レイキャスターに正規化済みマウス座標とカメラを指定する
+					this.raycaster.setFromCamera(v, this.camera);
+					// scene に含まれるすべてのオブジェクトを対象にレイキャストする
+					// intersectObjects（配列 Array）
+					const intersects = this.raycaster.intersectObjects(this.planeArray);
+					// レイ判定
+					if (intersects.length > 0) {
+						// カメラに近いものからキャストされて配列に格納されるので、配列の0番だけを変えることで、重なってても1個だけマテリアルを変更できてる。
+						console.log('hit');
+						console.log(intersects[0].object.position.x);
+					}
 				}
-
-
-				// - Raycaster は CPU 上で動作する --------------------------------------
-				// WebGL は描画処理に GPU を活用することで高速に動作します。
-				// しかし JavaScript は CPU 上で動作するプログラムであり、Raycaster が内部
-				// で行っている処理はあくまでも CPU 上で行われます。
-				// 原理的には「メッシュを構成するポリゴンとレイが衝突するか」を JavaScript
-				// でループして判定していますので、シーン内のメッシュの量やポリゴンの量が
-				// 増えると、それに比例して Raycaster のコストも増加します。
-				// ----------------------------------------------------------------------
-			}, false); */
+			}, false);
 
 			// 再帰呼び出しのための this 固定
 			this.render = this.render.bind(this);
 
 			// リサイズイベント
 			window.addEventListener('resize', () => {
-				// scaleをレスポンシブする処理
-				/* this.planeGroup.scale.x = this.planeGroup.scale.x * (window.innerWidth / this.widthInit); */
-				// y軸が勝手にあってしまうのは聞く。
-				/* this.planeGroup.scale.y = this.planeGroup.scale.y * (window.innerHeight / this.heightInit); */ //yはwindouサイズで決めた方が、幅に応じてレスポンスするはず。
-				// 現在のウィンドウサイズ（横幅）を更新
-				/* this.widthInit = window.innerWidth; */
-				/* this.heightInit = window.innerHeight; */
-
-				// カメラの更新
+/* 				// カメラの更新
 				this.renderer.setSize(window.innerWidth, window.innerHeight);
 				// OrthographicCamera 用のパラメータを求める
 				const aspect = window.innerWidth / window.innerHeight;
 				const scale = App3.CAMERA_SCALE;
-				const horizontal = scale;
-				const vertiacal = scale;
+				const horizontal = window.innerWidth / 2;
+				const vertiacal = window.innerHeight / 2;
 				this.camera.left = -horizontal;
 				this.camera.right = horizontal;
 				this.camera.top = vertiacal;
 				this.camera.bottom = -vertiacal;
-				
+				 */
 				this.camera.updateProjectionMatrix();
 			}, false);
 		}
@@ -312,9 +275,10 @@ import Layout from '../layouts/Layout.astro';
 			this.renderer.setPixelRatio(window.devicePixelRatio);
 			/* this.renderer.outputEncoding = THREE.GammaEncoding; */
 			this.renderer.setSize(App3.RENDERER_PARAM.width, App3.RENDERER_PARAM.height);
+			this.renderer.shadowMap.enabled = true;
 			const wrapper = document.querySelector('#webgl');
 			wrapper.appendChild(this.renderer.domElement);
-
+			
 			// シーン
 			this.scene = new THREE.Scene();
 
@@ -345,6 +309,18 @@ import Layout from '../layouts/Layout.astro';
 				App3.DIRECTIONAL_LIGHT_PARAM.z,
 			);
 			this.scene.add(this.directionalLight);
+			this.directionalLight.castShadow = true;
+			// 影用のカメラ（平行投影のカメラ）は必要に応じて範囲を広げる @@@
+			this.directionalLight.shadow.camera.top    =  App3.SHADOW_PARAM.spaceSize;
+			this.directionalLight.shadow.camera.bottom = -App3.SHADOW_PARAM.spaceSize;
+			this.directionalLight.shadow.camera.left   = -App3.SHADOW_PARAM.spaceSize;
+			this.directionalLight.shadow.camera.right  =  App3.SHADOW_PARAM.spaceSize;
+			// 影用のバッファのサイズは変更することもできる @@@
+			this.directionalLight.shadow.mapSize.width  = App3.SHADOW_PARAM.mapSize;
+			this.directionalLight.shadow.mapSize.height = App3.SHADOW_PARAM.mapSize;
+			// helper
+			const directionalLightHelper = new THREE.DirectionalLightHelper(this.directionalLight, 100);
+			this.scene.add(directionalLightHelper);
 
 			// アンビエントライト（環境光）
 			this.ambientLight = new THREE.AmbientLight(
@@ -363,7 +339,7 @@ import Layout from '../layouts/Layout.astro';
 			this.time = new THREE.Clock();
 
 			// ヘルパー
-			const axesBarLength = 5.0;
+			const axesBarLength = 1000.0;
 			this.axesHelper = new THREE.AxesHelper(axesBarLength);
 			this.scene.add(this.axesHelper);
 
@@ -415,11 +391,9 @@ import Layout from '../layouts/Layout.astro';
 			this.velocity = {x: 0, y: 0};
 
 
-
-
 			// 処理
-			// 画像数
-			const count = 30;
+			// 画像数 行数で割り切れる数
+			const count = 20;
 			// 列数
 			const column = 4;
 			// 行数
@@ -428,29 +402,34 @@ import Layout from '../layouts/Layout.astro';
 			this.planeArray = [];
 			// グループを定義
 			this.planeGroup = new THREE.Group();
-			// 現在のウィンドウサイズを保存
-			this.widthInit = window.innerWidth;
-			this.heightInit = window.innerHeight;
 			// 横幅の大きさ
-			const planeWidth = App3.CAMERA_SCALE * 2 / column;
+			this.planeWidth = window.innerWidth / 4;
 			// 縦幅の大きさ
-			const planeHeight = 2;
+			this.planeHeight = this.planeWidth * (9 / 16);
 			// ジオメトリの大きさ定義
-			const planeGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+			const planeGeometry = new THREE.PlaneGeometry(this.planeWidth, this.planeHeight);
 			// マテリアルを定義
-			const planeMaterial = new THREE.MeshBasicMaterial({map: this.texture });
+			const planeMaterial = new THREE.MeshPhongMaterial({map: this.texture, side: THREE.DoubleSide });
 			/* const planeMaterial = new THREE.MeshBasicMaterial({color: '#000' }); */
 			// グループにplaneを追加
 			for(let a = 0; a < line; a++){
 				for(let b = 0; b < column; b++){
 					const plane = new THREE.Mesh(planeGeometry, planeMaterial);
 
-					// planeの半分の大きさ + 行列を半分に分け、-1した時の倍率をplane一枚分の大きさ + 今のカラム分の大きさ
-/* 					plane.position.x = (-1 * (planeWidth / 2 + (planeWidth * (column / 2 - 1)))) + (planeWidth * (b));
-					plane.position.y = ((planeHeight / 2) + (planeHeight * (line / 2 - 1))) - (planeHeight * a); */
-					plane.position.x = (b * App3.CAMERA_SCALE) - App3.CAMERA_SCALE;
-					plane.position.y = 5;
+					// 上限 + (下限から上限までの範囲 / カラム数で割る * 現在のカラム番号)
+					plane.position.x = (window.innerWidth / 2 * -1) + (window.innerWidth / 2 * 2 / (column - 1) * b);
+					// 上限 - (高さ * plane間のマージン * ライン番号)
+					plane.position.y = (window.innerHeight / 2) - this.planeHeight * 1.5 * a;
+
+					if(a == line - 1){
+						this.planeTotalHeight = ((window.innerHeight / 2) - this.planeHeight * 1.5 * 0) - ((window.innerHeight / 2) - this.planeHeight * 1.5 * a);
+						/* console.log(this.planeTotalHeight); */
+					}
+
+					plane.position.z = 100;
 				
+					// 影の設定
+					plane.castShadow = true;
 					// グループにplaneを追加
 					this.planeGroup.add(plane);
 					// 配列にplane情報を追加（ray判定用）
@@ -458,11 +437,17 @@ import Layout from '../layouts/Layout.astro';
 				}
 			}
 
-			/* const plane = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), planeMaterial);
-			this.planeGroup.add(plane); */
-
 			// シーンにグループを追加
+			this.planeGroup.castShadow = true;
 			this.scene.add(this.planeGroup);
+
+			
+			const planeBack = new THREE.Mesh(new THREE.PlaneGeometry(window.innerWidth, window.innerHeight), new THREE.MeshPhongMaterial({color: '#fff' }));
+			planeBack.position.z = 50;
+			planeBack.receiveShadow = true;
+			this.scene.add(planeBack);
+
+			console.log(this.scene)
 		}
 
 		/**
@@ -480,33 +465,59 @@ import Layout from '../layouts/Layout.astro';
 			Object.assign(this.lastPos, this.currentPos)
 
 			if(this.down){
-				this.velocity.x = this.deltaPos.x * 0.08;
-				this.velocity.y = this.deltaPos.y * 0.08 * -1.0;
+				// スクロール量で足りない場合はかける（ワールド空間をwindowサイズした場合）、大きい場合は割る（ワールド空間を5とかにした場合）
+				this.velocity.x = this.deltaPos.x * 3.0; 
+				// スクロール量で足りない場合はかける（ワールド空間をwindowサイズした場合）、大きい場合は割る（ワールド空間を5とかにした場合）
+				this.velocity.y = this.deltaPos.y * 3.0 * -1.0; 
 
 				this.xScroll += this.velocity.x;
 				this.yScroll += this.velocity.y;
 			} else {
 				if(Math.abs(this.xScroll) > Number.EPSILON){
-					this.xScroll -= this.xScroll * 0.1;
+					// 発生したスクロール量を減産して0に近づける
+					this.xScroll -= this.xScroll * 0.075;
 				} else {
 					this.xScroll = 0;
 				}
 				if(Math.abs(this.yScroll) > Number.EPSILON){
-					this.yScroll -= this.yScroll * 0.1;
+					// 発生したスクロール量を減産して0に近づける
+					this.yScroll -= this.yScroll * 0.075;
 				} else {
 					this.yScroll = 0;
 				}
 			}
-			this.planeGroup.position.x += 0 + this.xScroll * 0.0125;
-			this.planeGroup.position.y += 0 + this.yScroll * 0.0125;
-			this.click = false
+			// 減少し続けるスクロールをそのままかけるとえらいことになるので、補正係数で値を調整して足し続ける。
+			this.planeGroup.position.x += 0 + this.xScroll * 0.01;
+			// 減少し続けるスクロールをそのままかけるとえらいことになるので、補正係数で値を調整して足し続ける。
+			this.planeGroup.position.y += 0 + this.yScroll * 0.01;
+			// クリックフラグを戻す。
+			this.click = false;
 
-			const planePosition = this.planeGroup.getWorldPosition(new THREE.Vector3());
-			// .project()はthree.jsのcameraメソッドの一つ。object3dのpositionを与えると、ワールド空間内でどの位置か？正規化して返す（-1~1の範囲）
-			const projection = planePosition.project(this.camera);
-			const sx = (window.innerWidth / 2.0) * (+projection.x + 1.0);
-			const sy = (window.innerHeight / 2.0) * (-projection.y + 1.0);
-			console.log(sx, sy)
+			this.planeArray.forEach((element, index) => {
+				const planePosition = element.getWorldPosition(new THREE.Vector3());
+				// .project()はthree.jsのcameraメソッドの一つ。object3dのpositionを与えると、ワールド空間内でどの位置か？正規化して返す（-1~1の範囲）
+				const projection = planePosition.project(this.camera);
+				const sx = (window.innerWidth / 2.0) * (+projection.x + 1.0);
+				const sy = (window.innerHeight / 2.0) * (-projection.y + 1.0);
+				/* console.log(sx, sy) */
+
+				if(sx < 0 - this.planeWidth / 2){
+					const aaa = (window.innerWidth / 2 * -1) + (window.innerWidth / 2 * 2 / (4 - 1) * 1);
+					element.position.x = element.position.x + window.innerWidth + this.planeWidth - (aaa / 2);
+				} else if(sx > window.innerWidth + this.planeWidth / 2){
+					const aaa = (window.innerWidth / 2 * -1) + (window.innerWidth / 2 * 2 / (4 - 1) * 1);
+					element.position.x = element.position.x - window.innerWidth - this.planeWidth + (aaa / 2);
+				}
+
+				if(sy < 0 - this.planeHeight / 2){
+					const aaa = this.planeHeight * 1.5 * 1;
+					element.position.y = element.position.y - this.planeTotalHeight - aaa;
+				} else if(sy > this.planeTotalHeight + this.planeHeight / 2){
+					const aaa = this.planeHeight * 1.5 * 1;
+					element.position.y = element.position.y + this.planeTotalHeight + aaa;
+				}
+			});
+
 
 
 			// レンダラーで描画
