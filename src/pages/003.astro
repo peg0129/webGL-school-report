@@ -653,6 +653,7 @@ import Layout from '../layouts/Layout.astro';
 						const cosGroup = vec2.dot(vec1);
 						//　コサインをラジアンに変換（総回転量）
 						const radGroup = Math.acos(cosGroup);
+						console.log(cosGroup)
 						// ラジアン → 度 に変換
 						this.thetaGroup = radGroup * 180 / Math.PI;
 						// 1フレームの回転量を算出
